@@ -1,0 +1,28 @@
+# Supabase Configuration
+# For local development and CLI
+
+[project]
+id = "afspraaq"
+
+[api]
+url = "${SERVICE_URL_SUPABASEKONG}"
+
+[db]
+host = "${POSTGRES_HOSTNAME:-supabase-db}"
+port = "${POSTGRES_PORT:-5432}"
+database = "${POSTGRES_DB:-postgres}"
+
+[db.pooler]
+enabled = false
+
+[studio]
+enabled = false
+
+[inbucket]
+enabled = false
+
+[storage]
+enabled = false
+
+[edge_runtime]
+enabled = false

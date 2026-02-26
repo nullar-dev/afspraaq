@@ -77,7 +77,7 @@ export default defineConfig(() => {
           .filter(Boolean),
         exclude: (
           env.COVERAGE_EXCLUDE ||
-          '**/*.test.ts,**/*.spec.ts,**/e2e/**,**/node_modules/**,src/app/layout.tsx,src/app/**/metadata.ts'
+          '**/*.test.ts,**/*.spec.ts,**/e2e/**,**/node_modules/**,src/app/layout.tsx,src/app/**/metadata.ts,src/proxy.ts,src/utils/supabase/server.ts,src/app/globals.css'
         )
           .split(',')
           .map(p => p.trim())

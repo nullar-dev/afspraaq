@@ -59,6 +59,7 @@ src/__tests__/
 ## CI/CD
 
 GitHub Actions runs on every PR and push to main:
+
 - Lint (ESLint, Prettier, TypeScript)
 - Security (npm audit, CodeQL)
 - Tests (Unit, Component, API, Coverage, E2E)

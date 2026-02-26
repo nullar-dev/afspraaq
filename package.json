@@ -1,0 +1,53 @@
+{
+  "name": "afspraaq",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
+    "format:check": "prettier --check .",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:unit": "vitest run",
+    "test:component": "vitest run",
+    "test:api": "vitest run",
+    "test:e2e": "playwright test",
+    "sentry": "sentry"
+  },
+  "dependencies": {
+    "@sentry/nextjs": "^10.40.0",
+    "next": "^16.1.6",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.4",
+    "@playwright/test": "^1.58.2",
+    "@sentry/cli": "^3.2.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^25.3.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.4",
+    "@vitest/coverage-v8": "^4.0.18",
+    "eslint": "^9.39.3",
+    "eslint-config-next": "^16.1.6",
+    "jsdom": "^28.1.0",
+    "lint-staged": "^16.2.7",
+    "playwright": "^1.58.2",
+    "prettier": "^3.8.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "prettier --write"
+    ]
+  }
+}

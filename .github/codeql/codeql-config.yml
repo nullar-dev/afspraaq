@@ -1,0 +1,11 @@
+name: CodeQL Configuration
+
+paths-ignore:
+  - '**/node_modules/**'
+  - '**/dist/**'
+  - '**/build/**'
+  - '**/*.test.ts'
+  - '**/*.spec.ts'
+
+queries:
+  - uses: security-and-quality

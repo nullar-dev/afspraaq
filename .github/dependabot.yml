@@ -1,0 +1,27 @@
+version: 2
+
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 10
+    labels:
+      - 'dependencies'
+      - 'security'
+    ignore:
+      - dependency-name: 'vitest'
+    versioning-strategy: increase
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    labels:
+      - 'dependencies'
+      - 'github-actions'
+    allow:
+      - dependency-name: 'actions/*'
+      - dependency-name: 'amondnet/vercel-action'
+      - dependency-name: 'github/codeql-action'
+      - dependency-name: 'trufflesecurity/trufflehog'

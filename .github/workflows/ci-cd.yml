@@ -1,0 +1,345 @@
+# =============================================================================
+# NULLAR CI/CD PIPELINE
+# =============================================================================
+# This pipeline is fully configurable via environment variables.
+# See ci-config.yml for all configuration options.
+# =============================================================================
+
+name: CI/CD Pipeline
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ vars.CI_CANCEL_IN_PROGRESS != 'false' }}
+
+# =============================================================================
+# CONFIGURABLE ENVIRONMENT VARIABLES
+# =============================================================================
+# Override these in GitHub Repository Settings > Variables
+# Or fork this workflow and customize
+# =============================================================================
+env:
+  # Runtime
+  NODE_VERSION: ${{ vars.NODE_VERSION || '24' }}
+  PNPM_VERSION: ${{ vars.PNPM_VERSION || '10' }}
+
+  # Test Paths
+  TEST_UNIT_DIR: ${{ vars.TEST_UNIT_DIR || 'src/__tests__/unit' }}
+  TEST_COMPONENT_DIR: ${{ vars.TEST_COMPONENT_DIR || 'src/__tests__/components' }}
+  TEST_API_DIR: ${{ vars.TEST_API_DIR || 'src/__tests__/api' }}
+  TEST_E2E_DIR: ${{ vars.TEST_E2E_DIR || 'src/__tests__/e2e' }}
+
+  # Coverage
+  COVERAGE_THRESHOLD: ${{ vars.COVERAGE_THRESHOLD || '80' }}
+
+  # Security
+  AUDIT_LEVEL: ${{ vars.AUDIT_LEVEL || 'moderate' }}
+
+  # Build
+  BUILD_RETENTION_DAYS: ${{ vars.BUILD_RETENTION_DAYS || '7' }}
+
+  # Timeouts (in minutes)
+  CI_E2E_TIMEOUT: ${{ vars.CI_E2E_TIMEOUT || '30' }}
+  CI_BUILD_TIMEOUT: ${{ vars.CI_BUILD_TIMEOUT || '30' }}
+
+# =============================================================================
+# JOBS
+# =============================================================================
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # LINT JOB
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6.2.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run ESLint
+        run: pnpm run lint
+
+      - name: Run Prettier check
+        run: pnpm run format:check
+
+      - name: Run TypeScript check
+        run: pnpm run typecheck
+
+  # ---------------------------------------------------------------------------
+  # SECURITY JOB
+  # ---------------------------------------------------------------------------
+  security:
+    name: Security Scan
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: ${{ vars.CI_SECURITY_TIMEOUT || 30 }}
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6.2.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run npm audit
+        run: pnpm audit --audit-level=${{ env.AUDIT_LEVEL }}
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4.32.4
+        with:
+          languages: ${{ vars.CI_CODEQL_LANGUAGES || 'javascript, typescript' }}
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4.32.4
+
+      - name: Run Secret Scanning
+        if: github.event.repository.default_branch != '' && github.event.before != github.sha
+        uses: trufflesecurity/trufflehog@v3.93.4
+        with:
+          base: ${{ github.event.before }}
+          head: ${{ github.sha }}
+
+  # ---------------------------------------------------------------------------
+  # UNIT TESTS JOB
+  # ---------------------------------------------------------------------------
+  unit-test:
+    name: Unit Tests
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6.2.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Unit Tests with Coverage
+        run: pnpm vitest run
+
+  # ---------------------------------------------------------------------------
+  # COMPONENT TESTS JOB
+  # ---------------------------------------------------------------------------
+  component-test:
+    name: Component Tests
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6.2.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Component Tests with Coverage
+        run: pnpm vitest run
+
+  # ---------------------------------------------------------------------------
+  # API TESTS JOB
+  # ---------------------------------------------------------------------------
+  api-test:
+    name: API Tests
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6.2.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run API Tests with Coverage
+        run: pnpm vitest run
+
+  # ---------------------------------------------------------------------------
+  # COVERAGE JOB
+  # ---------------------------------------------------------------------------
+  coverage:
+    name: Coverage
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6.2.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Coverage
+        run: pnpm run test:coverage
+
+  # ---------------------------------------------------------------------------
+  # E2E TESTS JOB
+  # ---------------------------------------------------------------------------
+  e2e-test:
+    name: E2E Tests
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: ${{ vars.CI_E2E_TIMEOUT || 30 }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6.2.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Cache Playwright browsers
+        id: cache-playwright
+        uses: actions/cache@v5.0.3
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package.json', '**/pnpm-lock.yaml', '**/playwright.config.*') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Browsers
+        run: pnpm exec playwright install --with-deps
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
+
+      - name: Run E2E Tests
+        run: pnpm playwright test ${{ env.TEST_E2E_DIR }}
+
+  # ---------------------------------------------------------------------------
+  # BUILD JOB
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: ${{ vars.CI_BUILD_TIMEOUT || 30 }}
+    needs: [lint, security, unit-test, component-test, api-test, coverage, e2e-test]
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6.2.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Cache Next.js build
+        uses: actions/cache@v5.0.3
+        with:
+          path: |
+            .next
+            .vercel
+          key: ${{ runner.os }}-nextjs-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Application
+        run: pnpm run build
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v6.0.0
+        with:
+          name: build
+          path: |
+            .next/
+            dist/
+          retention-days: ${{ env.BUILD_RETENTION_DAYS }}
+          compression-level: 6

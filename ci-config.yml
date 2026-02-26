@@ -1,0 +1,197 @@
+# =============================================================================
+# NULLAR CI/CD CONFIGURATION
+# =============================================================================
+# This file contains all configurable values for the CI/CD pipeline.
+# Edit these values to customize the pipeline for your project.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# PROJECT SETTINGS
+# -----------------------------------------------------------------------------
+project:
+  # Name of your project (used in artifacts, etc.)
+  name: 'afspraaq'
+
+  # TypeScript target (ES2020, ES2022, etc.)
+  typescript_target: 'ES2020'
+
+  # TypeScript module system (ESNext, CommonJS, etc.)
+  typescript_module: 'ESNext'
+
+# -----------------------------------------------------------------------------
+# RUNTIME SETTINGS
+# -----------------------------------------------------------------------------
+runtime:
+  # Node.js version (LTS recommended)
+  node_version: '24'
+
+  # Package manager
+  package_manager: 'pnpm'
+  pnpm_version: '10'
+
+  # Runner for GitHub Actions
+  runner: 'ubuntu-latest'
+
+# -----------------------------------------------------------------------------
+# BRANCH SETTINGS
+# -----------------------------------------------------------------------------
+branches:
+  # Branches that trigger CI on pull requests
+  pr:
+    - 'main'
+    - 'develop'
+
+  # Branches that trigger CI on push (usually main/production)
+  push:
+    - 'main'
+
+# -----------------------------------------------------------------------------
+# LINT SETTINGS
+# -----------------------------------------------------------------------------
+lint:
+  # ESLint configuration file (if different from default)
+  eslint_config: 'eslint.config.mjs'
+
+  # Additional ESLint flags
+  eslint_flags: '--ext .ts,.tsx,.js,.jsx'
+
+# -----------------------------------------------------------------------------
+# TEST SETTINGS
+# -----------------------------------------------------------------------------
+tests:
+  # Test directories (relative to project root)
+  paths:
+    unit: 'src/__tests__/unit'
+    component: 'src/__tests__/components'
+    api: 'src/__tests__/api'
+    e2e: 'src/__tests__/e2e'
+
+  # Test environment (jsdom, node, happy-dom)
+  environment: 'jsdom'
+
+  # Vitest setup files
+  setup_files:
+    - './vitest.setup.ts'
+
+  # Coverage settings
+  coverage:
+    # Coverage provider (v8, istanbul)
+    provider: 'v8'
+
+    # Minimum coverage thresholds (%)
+    thresholds:
+      lines: 80
+      branches: 80
+      functions: 80
+      statements: 80
+
+    # Coverage include patterns
+    include:
+      - 'src/**/*'
+
+    # Coverage exclude patterns
+    exclude:
+      - '**/*.test.ts'
+      - '**/*.test.tsx'
+      - '**/*.spec.ts'
+      - '**/*.spec.tsx'
+      - '**/*.d.ts'
+      - '**/node_modules/**'
+
+# -----------------------------------------------------------------------------
+# E2E TEST SETTINGS (Playwright)
+# -----------------------------------------------------------------------------
+e2e:
+  # Base URL for E2E tests
+  base_url: 'http://localhost:3000'
+
+  # Command to start the production server (build first, then start)
+  start_command: 'pnpm run build && pnpm run start'
+
+  # Playwright settings
+  parallel: true
+  retries: 2
+  workers: 1
+  timeout_ms: 300000
+
+  # Browsers to test on
+  browsers:
+    - 'chromium'
+    - 'firefox'
+    - 'webkit'
+
+  # Trace settings (on-first-retry, on-always, off)
+  trace: 'on-first-retry'
+
+  # Reuse existing server (useful for local development)
+  reuse_server: true
+
+# -----------------------------------------------------------------------------
+# SECURITY SETTINGS
+# -----------------------------------------------------------------------------
+security:
+  # npm audit level (low, moderate, high, critical)
+  audit_level: 'moderate'
+
+  # CodeQL languages to scan
+  languages:
+    - 'javascript'
+    - 'typescript'
+
+  # CodeQL queries (security-and-quality, security-extended, security)
+  queries: 'security-and-quality'
+
+  # Paths to ignore in security scans
+  paths_ignore:
+    - '**/node_modules/**'
+    - '**/dist/**'
+    - '**/build/**'
+    - '**/*.test.ts'
+    - '**/*.spec.ts'
+
+# -----------------------------------------------------------------------------
+# BUILD SETTINGS
+# -----------------------------------------------------------------------------
+build:
+  # Build command
+  build_command: 'pnpm run build'
+
+  # Artifact settings
+  artifacts:
+    retention_days: 7
+    compression_level: 6
+
+# -----------------------------------------------------------------------------
+# SENTRY SETTINGS
+# -----------------------------------------------------------------------------
+sentry:
+  # Performance monitoring sample rates (0.0 - 1.0)
+  traces_sample_rate: 0.1
+
+  # Session replay settings
+  replays:
+    session_sample_rate: 0.1
+    error_sample_rate: 1.0
+
+# -----------------------------------------------------------------------------
+# DEPENDABOT SETTINGS
+# -----------------------------------------------------------------------------
+dependabot:
+  # Update schedule
+  schedule: 'weekly'
+
+  # Maximum open PRs
+  open_pr_limit: 10
+
+  # Versioning strategy (increase, increase-if-necessary, widen, lock-file-only)
+  versioning_strategy: 'increase'
+
+# -----------------------------------------------------------------------------
+# JOB TIMEOUTS (in minutes)
+# -----------------------------------------------------------------------------
+timeouts:
+  # Default job timeout
+  default: 30
+
+  # Security scan timeout (usually longer)
+  security: 30

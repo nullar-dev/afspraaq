@@ -51,9 +51,10 @@ export default function RegisterPage() {
     if (error) {
       // Custom error messages - don't expose raw Supabase errors
       // Use generic message to prevent user enumeration
-      if (error.message.includes('Password')) {
+      const errorMsg = error.message.toLowerCase();
+      if (errorMsg.includes('password')) {
         setError('Password does not meet requirements.');
-      } else if (error.message.includes('Too many requests')) {
+      } else if (errorMsg.includes('too many requests')) {
         setError('Too many attempts. Please wait a moment and try again.');
       } else {
         setError('Unable to create account. Please try again later.');
@@ -121,7 +122,7 @@ export default function RegisterPage() {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="At least 6 characters"
+                  placeholder="At least 8 characters"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   onFocus={() => setFocusedField('password')}

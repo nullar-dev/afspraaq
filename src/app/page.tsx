@@ -81,7 +81,7 @@ export default function Home() {
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2 text-[#B0B0B0]">
                     <User className="w-5 h-5" />
-                    <span className="text-sm">{user.email}</span>
+                    <span className="text-sm">{user.email ?? 'No email'}</span>
                   </div>
                   <button
                     onClick={handleSignOut}

@@ -4,23 +4,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Next.js 16 application with a production-ready CI/CD pipeline. It uses pnpm as the package manager and includes comprehensive testing (Vitest + Playwright).
+Next.js 16 production app with CI/CD pipeline. Uses pnpm, Vitest, and Playwright.
+
+## Pre-commit Hook
+
+The project has a pre-commit hook (enabled via `git config core.hooksPath .githooks`) that runs automatically before each commit:
+
+1. **Format check** - Auto-fixes with Prettier if needed
+2. **ESLint** - Auto-fixes if possible, otherwise fails
+3. **TypeScript** - Fails if type errors
+4. **Tests** - Fails if any test fails
+
+To skip the hook for a single commit: `git commit --no-verify -m "message"`
 
 ## Common Commands
 
 ```bash
-# Install dependencies
+# Setup
 pnpm install
 
-# Development
-pnpm dev          # Start dev server
+# Build & Run
 pnpm build        # Build for production
-pnpm start        # Start production server
+pnpm start        # Start production server (port 3000)
 
 # Code quality
 pnpm lint              # Run ESLint
-pnpm format            # Auto-fix formatting
-pnpm format:check      # Check formatting
+pnpm format            # Auto-fix formatting with Prettier
+pnpm format:check      # Check formatting only
 pnpm typecheck         # TypeScript check
 
 # Testing
@@ -30,19 +40,11 @@ pnpm test:coverage     # Run with coverage (80% threshold enforced)
 pnpm test:unit         # Unit tests
 pnpm test:component    # Component tests
 pnpm test:api          # API tests
-pnpm test:e2e          # E2E tests (Playwright)
+pnpm test:e2e          # E2E tests (requires server running)
 
-# Run single test file
-pnpm vitest run src/__tests__/unit/example.test.ts
+# Run specific test
+npx vitest run src/__tests__/unit/example.test.ts
 ```
-
-## Architecture
-
-- **Framework**: Next.js 16 with App Router
-- **Testing**: Vitest (unit/component/API) + Playwright (E2E)
-- **CI/CD**: GitHub Actions with pre-commit hooks
-- **Error Tracking**: Sentry (optional)
-- **Pre-commit hook**: Runs format → lint → typecheck → tests before each commit
 
 ## Test Structure
 
@@ -50,12 +52,19 @@ pnpm vitest run src/__tests__/unit/example.test.ts
 src/__tests__/
 ├── unit/         # Vitest unit tests
 ├── components/  # Vitest component tests (React Testing Library)
-├── api/          # Vitest API tests
-└── e2e/          # Playwright E2E tests
+├── api/         # Vitest API tests
+└── e2e/         # Playwright E2E tests
 ```
+
+## CI/CD
+
+GitHub Actions runs on every PR and push to main:
+- Lint (ESLint, Prettier, TypeScript)
+- Security (npm audit, CodeQL)
+- Tests (Unit, Component, API, Coverage, E2E)
+- Build
 
 ## Important Notes
 
-- The pre-commit hook is enabled via `git config core.hooksPath .githooks`
-- Coverage threshold is 80% - tests will fail if not met
-- E2E tests require the dev server to be running on localhost:3000
+- Coverage threshold: 80% - tests will fail if not met
+- E2E tests require server running on localhost:3000

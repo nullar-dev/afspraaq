@@ -139,7 +139,7 @@ describe('Register Page', () => {
     });
   });
 
-  it('should show email error message', async () => {
+  it('should show generic error for email errors (no user enumeration)', async () => {
     mockSignUp.mockResolvedValueOnce({
       error: { message: 'Invalid email format' },
     });
@@ -154,7 +154,8 @@ describe('Register Page', () => {
     await user.click(screen.getByRole('button', { name: /create account/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/valid email/i)).toBeTruthy();
+      // Should show generic message, not reveal specific email error
+      expect(screen.getByText(/unable to create account/i)).toBeTruthy();
     });
   });
 
@@ -194,7 +195,7 @@ describe('Register Page', () => {
     });
   });
 
-  it('should show already registered error', async () => {
+  it('should show generic error for already registered (no user enumeration)', async () => {
     mockSignUp.mockResolvedValueOnce({
       error: { message: 'User already registered' },
     });
@@ -209,7 +210,8 @@ describe('Register Page', () => {
     await user.click(screen.getByRole('button', { name: /create account/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/account with this email already exists/i)).toBeTruthy();
+      // Should show generic message, not reveal email exists
+      expect(screen.getByText(/unable to create account/i)).toBeTruthy();
     });
   });
 

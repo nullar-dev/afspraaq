@@ -31,8 +31,8 @@ export default function RegisterPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
       setLoading(false);
       return;
     }
@@ -50,12 +50,9 @@ export default function RegisterPage() {
 
     if (error) {
       // Custom error messages - don't expose raw Supabase errors
-      if (error.message.includes('already registered')) {
-        setError('An account with this email already exists.');
-      } else if (error.message.includes('Password')) {
+      // Use generic message to prevent user enumeration
+      if (error.message.includes('Password')) {
         setError('Password does not meet requirements.');
-      } else if (error.message.includes('email')) {
-        setError('Please enter a valid email address.');
       } else if (error.message.includes('Too many requests')) {
         setError('Too many attempts. Please wait a moment and try again.');
       } else {

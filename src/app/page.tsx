@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
+import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { User } from 'lucide-react';
 import Link from 'next/link';
 import { getSupabaseClient } from '@/utils/supabase/client';
@@ -30,12 +30,29 @@ export default function Home() {
       }
     };
     getUser();
+
+    // Listen for auth state changes (e.g., logout from another tab)
+    if (supabase) {
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => {
+        setUser(session?.user ?? null);
+      });
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    }
   }, [supabase]);
 
   const handleSignOut = async () => {
     if (!supabase) return;
-    await supabase.auth.signOut();
-    setUser(null);
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+    } catch (error) {
+      console.error('Sign out failed:', error);
+    }
   };
 
   if (loading) {

@@ -9,6 +9,9 @@ const mockSupabaseWithUser = {
       data: { user: { id: '123', email: 'test@example.com' } },
     }),
     signOut: vi.fn().mockResolvedValue({ error: null }),
+    onAuthStateChange: vi.fn(() => ({
+      data: { subscription: { unsubscribe: vi.fn() } },
+    })),
   },
 };
 
@@ -16,6 +19,9 @@ vi.mock('../../utils/supabase/client', () => ({
   getSupabaseClient: vi.fn(() => ({
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
+      onAuthStateChange: vi.fn(() => ({
+        data: { subscription: { unsubscribe: vi.fn() } },
+      })),
     },
   })),
 }));
@@ -25,7 +31,7 @@ describe('Home Page', () => {
     vi.clearAllMocks();
   });
 
-  it('should render the welcome heading', async () => {
+  it('should Render the welcome heading', async () => {
     const { container } = render(<Home />);
 
     await waitFor(() => {

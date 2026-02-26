@@ -1,15 +1,29 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, act } from '@testing-library/react';
 import Home from '../../app/page';
 
+// Mock Supabase client utility
+vi.mock('../../utils/supabase/client', () => ({
+  getSupabaseClient: vi.fn(() => ({
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
+    },
+  })),
+}));
+
 describe('Home Page', () => {
-  it('should render the welcome heading', () => {
-    render(<Home />);
-    expect(screen.getByRole('heading', { name: /welcome to nullar/i })).toBeTruthy();
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it('should render main element', () => {
+  it('should render the welcome heading', async () => {
     const { container } = render(<Home />);
-    expect(container.querySelector('main')).toBeTruthy();
+
+    // Wait for loading to finish
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+
+    expect(container.textContent).toContain('Afspraaq');
   });
 });

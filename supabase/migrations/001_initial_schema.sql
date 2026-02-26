@@ -11,30 +11,22 @@ create table if not exists profiles (
 alter table profiles enable row level security;
 
 -- Policy: Users can read their own profile
+drop policy if exists "Users can read own profile" on profiles;
 create policy "Users can read own profile" on profiles
   for select using (auth.uid() = id);
 
 -- Policy: Users can update their own profile
+drop policy if exists "Users can update own profile" on profiles;
 create policy "Users can update own profile" on profiles
   for update using (auth.uid() = id);
 
--- Policy: Admins can read all profiles
-create policy "Admins can read all profiles" on profiles
-  for select using (
-    exists (
-      select 1 from profiles
-      where id = auth.uid() and role = 'admin'
-    )
-  );
+-- Policy: Users can insert their own profile (for trigger-created profiles)
+drop policy if exists "Users can insert own profile" on profiles;
+create policy "Users can insert own profile" on profiles
+  for insert with check (auth.uid() = id);
 
--- Policy: Admins can update all profiles
-create policy "Admins can update all profiles" on profiles
-  for update using (
-    exists (
-      select 1 from profiles
-      where id = auth.uid() and role = 'admin'
-    )
-  );
+-- Note: Admin policies will be added when admin features are implemented
+-- For now, use service_role key in migrations or direct DB access for admin operations
 
 -- Function to auto-create profile on user signup
 create or replace function public.handle_new_user()
@@ -51,3 +43,11 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- Rate limiting: Configure Supabase Auth rate limits
+-- These settings limit failed login attempts
+-- Note: Configure via Supabase Dashboard > Authentication > Rate Limits
+-- Or via gotrue.yml in self-hosted Supabase
+
+-- Enable email confirmations (recommended for production)
+-- Users will receive confirmation email before account is activated

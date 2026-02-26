@@ -1,32 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { User, Mail, Lock, ArrowRight } from 'lucide-react';
-import { createClient } from '@/utils/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { getSupabaseClient } from '@/utils/supabase/client';
+import { inputClasses } from '@/lib/styles';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => getSupabaseClient(), []);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
-
-  const inputClasses = (fieldName: string) => `
-    bg-[#1E1E1E] border-2 text-white placeholder:text-[#4A4A4A]
-    transition-all duration-300 rounded-xl py-5 sm:py-6 px-4 sm:px-5
-    ${
-      focusedField === fieldName
-        ? 'border-gold shadow-gold ring-2 ring-gold/20'
-        : 'border-[#2A2A2A] hover:border-[#3A3A3A]'
-    }
-  `;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,13 +37,30 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!supabase) {
+      setError('Registration is not available. Please try again later.');
+      setLoading(false);
+      return;
+    }
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
     });
 
     if (error) {
-      setError(error.message);
+      // Custom error messages - don't expose raw Supabase errors
+      if (error.message.includes('already registered')) {
+        setError('An account with this email already exists.');
+      } else if (error.message.includes('Password')) {
+        setError('Password does not meet requirements.');
+      } else if (error.message.includes('email')) {
+        setError('Please enter a valid email address.');
+      } else if (error.message.includes('Too many requests')) {
+        setError('Too many attempts. Please wait a moment and try again.');
+      } else {
+        setError('Unable to create account. Please try again later.');
+      }
       setLoading(false);
     } else {
       // Check if email confirmation is required
@@ -94,7 +103,7 @@ export default function RegisterPage() {
                   onChange={e => setEmail(e.target.value)}
                   onFocus={() => setFocusedField('email')}
                   onBlur={() => setFocusedField(null)}
-                  className={inputClasses('email')}
+                  className={inputClasses(focusedField, 'email')}
                   required
                 />
               </div>
@@ -120,7 +129,7 @@ export default function RegisterPage() {
                   onChange={e => setPassword(e.target.value)}
                   onFocus={() => setFocusedField('password')}
                   onBlur={() => setFocusedField(null)}
-                  className={inputClasses('password')}
+                  className={inputClasses(focusedField, 'password')}
                   required
                 />
               </div>
@@ -146,7 +155,7 @@ export default function RegisterPage() {
                   onChange={e => setConfirmPassword(e.target.value)}
                   onFocus={() => setFocusedField('confirmPassword')}
                   onBlur={() => setFocusedField(null)}
-                  className={inputClasses('confirmPassword')}
+                  className={inputClasses(focusedField, 'confirmPassword')}
                   required
                 />
               </div>
@@ -187,20 +196,20 @@ export default function RegisterPage() {
           {/* Login Link */}
           <p className="text-center text-[#B0B0B0] text-sm">
             Already have an account?{' '}
-            <a
+            <Link
               href="/login"
               className="text-gold hover:text-gold-light font-medium transition-colors"
             >
               Sign in
-            </a>
+            </Link>
           </p>
         </div>
 
         {/* Back to Home */}
         <p className="text-center mt-6">
-          <a href="/" className="text-[#6B6B6B] hover:text-gold text-sm transition-colors">
+          <Link href="/" className="text-[#6B6B6B] hover:text-gold text-sm transition-colors">
             ← Back to home
-          </a>
+          </Link>
         </p>
       </div>
     </div>

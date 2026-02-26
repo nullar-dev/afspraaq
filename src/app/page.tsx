@@ -1,28 +1,41 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { createClient } from '@/utils/supabase/client';
+import { useEffect, useState, useMemo } from 'react';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { User } from 'lucide-react';
+import Link from 'next/link';
+import { getSupabaseClient } from '@/utils/supabase/client';
 
 export default function Home() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+
+  const supabase = useMemo(() => getSupabaseClient(), []);
 
   useEffect(() => {
     const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
-      setLoading(false);
+      if (!supabase) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        setUser(user);
+      } catch {
+        // Auth error - treat as not logged in
+      } finally {
+        setLoading(false);
+      }
     };
     getUser();
-  }, []);
+  }, [supabase]);
 
   const handleSignOut = async () => {
+    if (!supabase) return;
     await supabase.auth.signOut();
-    window.location.reload();
+    setUser(null);
   };
 
   if (loading) {
@@ -62,18 +75,18 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="flex items-center gap-3">
-                  <a
+                  <Link
                     href="/login"
                     className="px-4 py-2 text-sm font-medium text-[#B0B0B0] hover:text-white transition-colors"
                   >
                     Sign In
-                  </a>
-                  <a
+                  </Link>
+                  <Link
                     href="/register"
                     className="px-4 py-2 text-sm font-semibold bg-gold hover:bg-gold-light text-[#0A0A0A] rounded-lg transition-colors"
                   >
                     Get Started
-                  </a>
+                  </Link>
                 </div>
               )}
             </div>
@@ -87,7 +100,7 @@ export default function Home() {
           <div className="text-center animate-fade-in">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gold/10 text-gold text-sm font-medium mb-6">
               <span className="w-2 h-2 rounded-full bg-gold animate-pulse" />
-              Authentication Ready
+              {supabase ? 'Authentication Ready' : 'Demo Mode'}
             </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6">
@@ -109,18 +122,18 @@ export default function Home() {
                 </button>
               ) : (
                 <>
-                  <a
+                  <Link
                     href="/register"
                     className="px-8 py-3 text-base font-semibold bg-gold hover:bg-gold-light text-[#0A0A0A] rounded-xl transition-all hover:shadow-gold-lg"
                   >
                     Get Started
-                  </a>
-                  <a
+                  </Link>
+                  <Link
                     href="/login"
                     className="px-8 py-3 text-base font-medium text-white bg-[#1E1E1E] hover:bg-[#252525] border border-[#2A2A2A] rounded-xl transition-all"
                   >
                     Sign In
-                  </a>
+                  </Link>
                 </>
               )}
             </div>
@@ -143,7 +156,9 @@ export default function Home() {
                 <span className="text-gold">🔗</span>
               </div>
               <h3 className="text-white font-semibold text-lg mb-2">Database</h3>
-              <p className="text-[#6B6B6B] text-sm">Connected to Supabase</p>
+              <p className="text-[#6B6B6B] text-sm">
+                {supabase ? 'Connected to Supabase' : 'Demo mode (no connection)'}
+              </p>
             </div>
 
             <div className="p-6 rounded-2xl bg-[#141414] border border-[#2A2A2A] animate-fade-in-up stagger-3">

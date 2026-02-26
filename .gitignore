@@ -16,6 +16,7 @@ out/
 # Testing
 coverage/
 .nyc_output/
+test-results/
 
 # Misc
 .DS_Store

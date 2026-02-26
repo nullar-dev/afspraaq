@@ -1,36 +1,41 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
-import { createClient } from '@/utils/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { getSupabaseClient } from '@/utils/supabase/client';
+import { inputClasses } from '@/lib/styles';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
-  const supabase = createClient();
+  const searchParams = useSearchParams();
+  const supabase = useMemo(() => getSupabaseClient(), []);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  const inputClasses = (fieldName: string) => `
-    bg-[#1E1E1E] border-2 text-white placeholder:text-[#4A4A4A]
-    transition-all duration-300 rounded-xl py-5 sm:py-6 px-4 sm:px-5
-    ${
-      focusedField === fieldName
-        ? 'border-gold shadow-gold ring-2 ring-gold/20'
-        : 'border-[#2A2A2A] hover:border-[#3A3A3A]'
-    }
-  `;
+  const successMessage = useMemo(() => {
+    return searchParams.get('registered') === 'true'
+      ? 'Account created successfully! Please sign in.'
+      : '';
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    if (!supabase) {
+      setError('Authentication is not available. Please try again later.');
+      setLoading(false);
+      return;
+    }
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -38,7 +43,14 @@ export default function LoginPage() {
     });
 
     if (error) {
-      setError(error.message);
+      // Custom error messages - don't expose raw Supabase errors
+      if (error.message.includes('Invalid login credentials')) {
+        setError('Invalid email or password. Please try again.');
+      } else if (error.message.includes('Too many requests')) {
+        setError('Too many attempts. Please wait a moment and try again.');
+      } else {
+        setError('Unable to sign in. Please check your credentials and try again.');
+      }
       setLoading(false);
     } else {
       router.push('/');
@@ -81,7 +93,7 @@ export default function LoginPage() {
                   onChange={e => setEmail(e.target.value)}
                   onFocus={() => setFocusedField('email')}
                   onBlur={() => setFocusedField(null)}
-                  className={inputClasses('email')}
+                  className={inputClasses(focusedField, 'email')}
                   required
                 />
               </div>
@@ -107,11 +119,18 @@ export default function LoginPage() {
                   onChange={e => setPassword(e.target.value)}
                   onFocus={() => setFocusedField('password')}
                   onBlur={() => setFocusedField(null)}
-                  className={inputClasses('password')}
+                  className={inputClasses(focusedField, 'password')}
                   required
                 />
               </div>
             </div>
+
+            {/* Success */}
+            {successMessage && (
+              <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-500 text-sm">
+                {successMessage}
+              </div>
+            )}
 
             {/* Error */}
             {error && (
@@ -147,23 +166,39 @@ export default function LoginPage() {
 
           {/* Register Link */}
           <p className="text-center text-[#B0B0B0] text-sm">
-            Don't have an account?{' '}
-            <a
+            Don&apos;t have an account?{' '}
+            <Link
               href="/register"
               className="text-gold hover:text-gold-light font-medium transition-colors"
             >
               Create one
-            </a>
+            </Link>
           </p>
         </div>
 
         {/* Back to Home */}
         <p className="text-center mt-6">
-          <a href="/" className="text-[#6B6B6B] hover:text-gold text-sm transition-colors">
+          <Link href="/" className="text-[#6B6B6B] hover:text-gold text-sm transition-colors">
             ← Back to home
-          </a>
+          </Link>
         </p>
       </div>
     </div>
+  );
+}
+
+function LoginFormFallback() {
+  return (
+    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center px-4 py-10">
+      <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFormFallback />}>
+      <LoginForm />
+    </Suspense>
   );
 }

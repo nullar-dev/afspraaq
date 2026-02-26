@@ -15,6 +15,7 @@ DB_USER="postgres"
 echo "Running Supabase migrations..."
 
 # Run migrations using psql
+export PGPASSWORD="$DB_PASSWORD"
 for migration in supabase/migrations/*.sql; do
   echo "Applying: $migration"
   psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f "$migration" --quiet

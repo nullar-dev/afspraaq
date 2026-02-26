@@ -44,9 +44,13 @@ function LoginForm() {
 
     if (error) {
       // Custom error messages - don't expose raw Supabase errors
-      if (error.message.includes('Invalid login credentials')) {
+      const errorMsg = error.message.toLowerCase();
+      if (
+        errorMsg.includes('invalid login credentials') ||
+        errorMsg.includes('invalid credentials')
+      ) {
         setError('Invalid email or password. Please try again.');
-      } else if (error.message.includes('Too many requests')) {
+      } else if (errorMsg.includes('too many requests')) {
         setError('Too many attempts. Please wait a moment and try again.');
       } else {
         setError('Unable to sign in. Please check your credentials and try again.');

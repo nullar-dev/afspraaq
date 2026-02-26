@@ -63,8 +63,9 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# All checks passed - stage modified files
+# All checks passed - stage modified files (auto-formatted, auto-fixed)
 git add -u
+echo " ✅ Files auto-formatted/fixed have been staged"
 
 echo ""
 echo "═══════════════════════════════════════════════════════════════"

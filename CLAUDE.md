@@ -74,6 +74,33 @@ GitHub Actions runs on every PR and push to main:
 - Coverage threshold: 80% - tests will fail if not met
 - E2E tests require server running on localhost:3000
 
+## LLM Workflow
+
+**Always create a branch BEFORE making any edits:**
+
+```bash
+# 1. Create branch first
+git checkout -b fix/your-fix-name
+
+# 2. Make edits
+# ... your edits ...
+
+# 3. Commit (hook will run)
+git add . && git commit -m "fix: description"
+
+# 4. Push and create PR
+git push -u origin fix/your-fix-name
+gh pr create
+```
+
+If you accidentally made edits on the wrong branch:
+
+```bash
+git stash
+git checkout -b fix/new-branch
+git stash pop
+```
+
 ## Environment Variables
 
 Create `.env.local` based on `.env.example`:

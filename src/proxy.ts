@@ -6,24 +6,39 @@ export async function proxy(request: NextRequest) {
     request,
   });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          supabaseResponse = NextResponse.next({
-            request,
-          });
-          cookiesToSet.forEach(({ name, value }) => supabaseResponse.cookies.set(name, value));
-        },
-      },
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // Return early if env vars are missing - allow request to proceed without auth
+  if (
+    !supabaseUrl ||
+    !supabaseKey ||
+    supabaseUrl.includes('placeholder') ||
+    supabaseKey === 'placeholder-key'
+  ) {
+    const { pathname } = request.nextUrl;
+    const publicRoutes = ['/login', '/register', '/'];
+    if (!publicRoutes.includes(pathname)) {
+      const url = new URL('/login', request.url);
+      return NextResponse.redirect(url);
     }
-  );
+    return supabaseResponse;
+  }
+
+  const supabase = createServerClient(supabaseUrl, supabaseKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        supabaseResponse = NextResponse.next({
+          request,
+        });
+        cookiesToSet.forEach(({ name, value }) => supabaseResponse.cookies.set(name, value));
+      },
+    },
+  });
 
   // Refresh session if expired - with error handling
   let user = null;

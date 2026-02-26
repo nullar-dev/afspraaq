@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Next.js 16 production app with CI/CD pipeline. Uses pnpm, Vitest, and Playwright.
 
+- **Framework**: Next.js 16 with App Router
+- **Auth**: Supabase (self-hosted on Coolify)
+- **Error Tracking**: Sentry
+
 ## Pre-commit Hook
 
 The project has a pre-commit hook (enabled via `git config core.hooksPath .githooks`) that runs automatically before each commit:
@@ -69,3 +73,14 @@ GitHub Actions runs on every PR and push to main:
 
 - Coverage threshold: 80% - tests will fail if not met
 - E2E tests require server running on localhost:3000
+
+## Environment Variables
+
+Create `.env.local` based on `.env.example`:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=       # Supabase project URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY=  # Supabase anon key
+NEXT_PUBLIC_SENTRY_DSN=         # Sentry DSN (optional)
+NEXT_PUBLIC_SENTRY_ENABLED=false # Disable Sentry in dev
+```

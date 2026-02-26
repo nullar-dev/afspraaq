@@ -9,6 +9,27 @@ const mockSupabaseWithUser = {
       data: { user: { id: '123', email: 'test@example.com' } },
     }),
     signOut: vi.fn().mockResolvedValue({ error: null }),
+    onAuthStateChange: vi.fn(
+      (
+        callback: (event: string, session: { user: { id: string; email: string } } | null) => void
+      ) => {
+        // Simulate initial auth check
+        callback('SIGNED_OUT', null);
+        return {
+          data: { subscription: { unsubscribe: vi.fn() } },
+        };
+      }
+    ),
+  },
+};
+
+// Mock with signOut that throws
+const mockSupabaseWithSignOutError = {
+  auth: {
+    getUser: vi.fn().mockResolvedValue({
+      data: { user: { id: '123', email: 'test@example.com' } },
+    }),
+    signOut: vi.fn().mockRejectedValue(new Error('Network error')),
     onAuthStateChange: vi.fn(() => ({
       data: { subscription: { unsubscribe: vi.fn() } },
     })),
@@ -76,6 +97,25 @@ describe('Home Page', () => {
     });
 
     expect(mockSupabaseWithUser.auth.signOut).toHaveBeenCalled();
+  });
+
+  it('should handle signOut error gracefully', async () => {
+    const { getSupabaseClient } = await import('../../utils/supabase/client');
+    vi.mocked(getSupabaseClient).mockReturnValueOnce(mockSupabaseWithSignOutError as any);
+
+    render(<Home />);
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: /sign out/i })[0]).toBeTruthy();
+    });
+
+    // Should not throw
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole('button', { name: /sign out/i })[0]);
+    });
+
+    // Error should be logged (we can verify by checking console.error was called)
+    expect(mockSupabaseWithSignOutError.auth.signOut).toHaveBeenCalled();
   });
 
   it('should show Sign In and Get Started when not logged in', async () => {

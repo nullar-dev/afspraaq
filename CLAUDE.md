@@ -1,131 +1,61 @@
-# CI/CD Pipeline Template
+# CLAUDE.md
 
-A production-ready CI/CD pipeline for Next.js projects with 2026 best practices.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Quick Start
+## Project Overview
+
+This is a Next.js 16 application with a production-ready CI/CD pipeline. It uses pnpm as the package manager and includes comprehensive testing (Vitest + Playwright).
+
+## Common Commands
 
 ```bash
-# Clone and set up
-git clone https://github.com/nullar-dev/afspraaq.git
-cd afspraaq
+# Install dependencies
 pnpm install
 
-# Test locally
-pnpm run lint
-pnpm run format:check
-pnpm run typecheck
-pnpm run test
-pnpm run build
+# Development
+pnpm dev          # Start dev server
+pnpm build        # Build for production
+pnpm start        # Start production server
+
+# Code quality
+pnpm lint              # Run ESLint
+pnpm format            # Auto-fix formatting
+pnpm format:check      # Check formatting
+pnpm typecheck         # TypeScript check
+
+# Testing
+pnpm test              # Run all tests
+pnpm test:watch        # Watch mode
+pnpm test:coverage     # Run with coverage (80% threshold enforced)
+pnpm test:unit         # Unit tests
+pnpm test:component    # Component tests
+pnpm test:api          # API tests
+pnpm test:e2e          # E2E tests (Playwright)
+
+# Run single test file
+pnpm vitest run src/__tests__/unit/example.test.ts
 ```
 
-## Available Commands
+## Architecture
 
-| Command                   | Description             |
-| ------------------------- | ----------------------- |
-| `pnpm run lint`           | Run ESLint              |
-| `pnpm run format`         | Auto-fix formatting     |
-| `pnpm run format:check`   | Check formatting        |
-| `pnpm run typecheck`      | TypeScript check        |
-| `pnpm run test`           | Run all tests           |
-| `pnpm run test:coverage`  | Run tests with coverage |
-| `pnpm run test:unit`      | Unit tests              |
-| `pnpm run test:component` | Component tests         |
-| `pnpm run test:api`       | API tests               |
-| `pnpm run test:e2e`       | E2E tests (Playwright)  |
-| `pnpm run build`          | Build Next.js app       |
+- **Framework**: Next.js 16 with App Router
+- **Testing**: Vitest (unit/component/API) + Playwright (E2E)
+- **CI/CD**: GitHub Actions with pre-commit hooks
+- **Error Tracking**: Sentry (optional)
+- **Pre-commit hook**: Runs format → lint → typecheck → tests before each commit
 
-## Project Structure
+## Test Structure
 
 ```
-src/
-├── __tests__/
-│   ├── unit/      # Vitest unit tests
-│   ├── components/ # Vitest component tests
-│   ├── api/       # Vitest API tests
-│   └── e2e/       # Playwright E2E tests
-└── app/           # Next.js app
+src/__tests__/
+├── unit/         # Vitest unit tests
+├── components/  # Vitest component tests (React Testing Library)
+├── api/          # Vitest API tests
+└── e2e/          # Playwright E2E tests
 ```
 
-## Configuration
+## Important Notes
 
-### CI/CD Settings
-
-- **ci-config.yml** - Main CI/CD configuration (Node version, pnpm version, test paths, etc.)
-- **GitHub Variables** - Override defaults in repo Settings > Variables
-
-### Test Configuration
-
-- **vitest.config.ts** - Vitest configuration
-- **playwright.config.ts** - Playwright configuration
-
-### Code Quality
-
-- **eslint.config.mjs** - ESLint configuration
-- **.prettierrc** - Prettier configuration
-- **tsconfig.json** - TypeScript configuration
-
-## Updating Dependencies
-
-### Node.js Version
-
-Update in:
-
-- `ci-config.yml` → `node_version`
-- `.github/workflows/ci-cd.yml` → `NODE_VERSION`
-
-### pnpm Version
-
-Update in:
-
-- `ci-config.yml` → `pnpm_version`
-- `.github/workflows/ci-cd.yml` → `PNPM_VERSION`
-
-### Other Dependencies
-
-Edit `package.json` and run `pnpm install`
-
-## Adding New Tests
-
-### Unit/Component/API Tests
-
-Add to `src/__tests__/unit/`, `components/`, or `api/` - Vitest will auto-discover
-
-### E2E Tests
-
-Add to `src/__tests__/e2e/` - Playwright will run these
-
-## GitHub Actions Workflow
-
-The CI runs on:
-
-- Pull requests to `main` or `develop`
-- Push to `main`
-
-Jobs:
-
-1. **Lint** - ESLint, Prettier, TypeScript
-2. **Security** - npm audit, CodeQL, TruffleHog
-3. **Unit Tests** - Vitest
-4. **Component Tests** - Vitest
-5. **API Tests** - Vitest
-6. **Coverage** - Vitest (enforces 80% threshold)
-7. **E2E Tests** - Playwright
-8. **Build** - Next.js build
-
-## Troubleshooting
-
-### Tests fail locally
-
-Run full check:
-
-```bash
-pnpm run lint && pnpm run format && pnpm run typecheck && pnpm run test
-```
-
-### CI fails
-
-Check the GitHub Actions tab for error details
-
-### E2E tests timeout
-
-Adjust in `playwright.config.ts` or set `E2E_TIMEOUT_MS` env var
+- The pre-commit hook is enabled via `git config core.hooksPath .githooks`
+- Coverage threshold is 80% - tests will fail if not met
+- E2E tests require the dev server to be running on localhost:3000

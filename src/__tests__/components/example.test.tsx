@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, act, screen, fireEvent } from '@testing-library/react';
+import { render, act, screen, fireEvent, waitFor } from '@testing-library/react';
 import Home from '../../app/page';
 
 // Mock with user logged in
@@ -25,14 +25,12 @@ describe('Home Page', () => {
     vi.clearAllMocks();
   });
 
-  it('should Render the welcome heading', async () => {
+  it('should render the welcome heading', async () => {
     const { container } = render(<Home />);
 
-    await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 100));
+    await waitFor(() => {
+      expect(container.textContent).toContain('Afspraaq');
     });
-
-    expect(container.textContent).toContain('Afspraaq');
   });
 
   it('should show Demo Mode when supabase is null', async () => {
@@ -41,11 +39,9 @@ describe('Home Page', () => {
 
     const { container } = render(<Home />);
 
-    await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 100));
+    await waitFor(() => {
+      expect(container.textContent).toContain('Demo Mode');
     });
-
-    expect(container.textContent).toContain('Demo Mode');
   });
 
   it('should show user email when logged in', async () => {
@@ -54,11 +50,9 @@ describe('Home Page', () => {
 
     render(<Home />);
 
-    await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 100));
+    await waitFor(() => {
+      expect(screen.getByText('test@example.com')).toBeTruthy();
     });
-
-    expect(screen.getByText('test@example.com')).toBeTruthy();
   });
 
   it('should call signOut when sign out button is clicked', async () => {
@@ -67,12 +61,13 @@ describe('Home Page', () => {
 
     render(<Home />);
 
-    await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 100));
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: /sign out/i })[0]).toBeTruthy();
     });
 
-    const signOutButton = screen.getAllByRole('button', { name: /sign out/i })[0];
-    fireEvent.click(signOutButton);
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole('button', { name: /sign out/i })[0]);
+    });
 
     expect(mockSupabaseWithUser.auth.signOut).toHaveBeenCalled();
   });
@@ -80,11 +75,9 @@ describe('Home Page', () => {
   it('should show Sign In and Get Started when not logged in', async () => {
     const { container } = render(<Home />);
 
-    await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 100));
+    await waitFor(() => {
+      expect(container.textContent).toContain('Sign In');
+      expect(container.textContent).toContain('Get Started');
     });
-
-    expect(container.textContent).toContain('Sign In');
-    expect(container.textContent).toContain('Get Started');
   });
 });

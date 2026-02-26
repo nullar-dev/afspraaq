@@ -176,4 +176,59 @@ describe('Register Page', () => {
       expect(screen.getByText(/unable to create account/i)).toBeTruthy();
     });
   });
+
+  it('should show error when supabase is not available', async () => {
+    mockGetSupabaseClient.mockReturnValueOnce(null);
+
+    const { default: RegisterPage } = await import('../../app/register/page');
+    const user = userEvent.setup();
+    render(<RegisterPage />);
+
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'password123');
+    await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/registration is not available/i)).toBeTruthy();
+    });
+  });
+
+  it('should show already registered error', async () => {
+    mockSignUp.mockResolvedValueOnce({
+      error: { message: 'User already registered' },
+    });
+
+    const { default: RegisterPage } = await import('../../app/register/page');
+    const user = userEvent.setup();
+    render(<RegisterPage />);
+
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'password123');
+    await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/account with this email already exists/i)).toBeTruthy();
+    });
+  });
+
+  it('should show too many requests error', async () => {
+    mockSignUp.mockResolvedValueOnce({
+      error: { message: 'Too many requests' },
+    });
+
+    const { default: RegisterPage } = await import('../../app/register/page');
+    const user = userEvent.setup();
+    render(<RegisterPage />);
+
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'password123');
+    await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/too many attempts/i)).toBeTruthy();
+    });
+  });
 });

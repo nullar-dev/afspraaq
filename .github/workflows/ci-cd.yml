@@ -50,6 +50,11 @@ env:
   CI_E2E_TIMEOUT: ${{ vars.CI_E2E_TIMEOUT || '30' }}
   CI_BUILD_TIMEOUT: ${{ vars.CI_BUILD_TIMEOUT || '30' }}
 
+  # Supabase (required for E2E tests)
+  # Use placeholder values if not set - app handles null client gracefully
+  NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key' }}
+
 # =============================================================================
 # JOBS
 # =============================================================================

@@ -7,8 +7,8 @@ export async function createClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // Return null if env vars are not configured (for CI/testing)
-  if (!url || !key) {
+  // Return null if env vars are missing or are placeholder values (CI/testing)
+  if (!url || !key || url.includes('placeholder') || key === 'placeholder-key') {
     return null;
   }
 

@@ -46,3 +46,10 @@ next-env.d.ts
 .sentryclirc
 sentry.properties
 .next/sourcemaps/
+
+# Supabase
+supabase/.branches/
+supabase/.temp/
+
+# Prototype (extracted, not needed in repo)
+prototype/

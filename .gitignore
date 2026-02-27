@@ -52,5 +52,5 @@ sentry.properties
 supabase/.branches/
 supabase/.temp/
 
-# Prototype (extracted, not needed in repo)
-prototype/
+# Prototype (root-level extracted folder, not needed in repo)
+/prototype/

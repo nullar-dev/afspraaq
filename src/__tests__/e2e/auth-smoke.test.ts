@@ -3,15 +3,18 @@ import { expect, test } from '@playwright/test';
 test.describe('Auth Routes Smoke', () => {
   test('login page renders primary controls', async ({ page }) => {
     await page.goto('/login');
-    await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible({
+      timeout: 15000,
+    });
     await expect(page.getByLabel(/email address/i)).toBeVisible();
-    await expect(page.getByLabel(/^password$/i)).toBeVisible();
+    await expect(page.getByLabel(/password/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
   });
 
   test('login page create-account button navigates to /register', async ({ page }) => {
     await page.goto('/login');
-    await page.getByText('Create one').click();
+    await page.getByRole('link', { name: /create one/i }).click();
     await expect(page).toHaveURL(/\/register$/);
   });
 

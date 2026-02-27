@@ -23,6 +23,7 @@ const steps: Step[] = [
 const BookingStepper: React.FC = () => {
   const { state, goToStep } = useBooking();
   const currentStepIndex = steps.findIndex(s => s.id === state.currentStep);
+  const boundedProgressRatio = Math.max(0, Math.min(1, currentStepIndex / (steps.length - 1)));
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to current step on mobile
@@ -124,7 +125,7 @@ const BookingStepper: React.FC = () => {
             <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-[#2A2A2A]">
               <div
                 className="absolute top-0 left-0 w-full bg-gold transition-all duration-500"
-                style={{ height: `${(currentStepIndex / (steps.length - 1)) * 100}%` }}
+                style={{ height: `${boundedProgressRatio * 100}%` }}
               />
             </div>
           )}
@@ -193,13 +194,13 @@ const BookingStepper: React.FC = () => {
           <div className="flex items-center justify-between text-xs mb-2">
             <span className="text-[#6B6B6B]">Progress</span>
             <span className="text-gold font-semibold">
-              {Math.round((currentStepIndex / (steps.length - 1)) * 100)}%
+              {Math.round(boundedProgressRatio * 100)}%
             </span>
           </div>
           <div className="h-2 bg-[#1E1E1E] rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-gold to-gold-light transition-all duration-500 ease-out"
-              style={{ width: `${(currentStepIndex / (steps.length - 1)) * 100}%` }}
+              style={{ width: `${boundedProgressRatio * 100}%` }}
             />
           </div>
         </div>

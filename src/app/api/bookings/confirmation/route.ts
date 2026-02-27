@@ -6,17 +6,14 @@ import type { ApiErrorResponse } from '@/types/api';
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 30;
 const RATE_LIMIT_MAX_ENTRIES = 10_000;
+const RATE_LIMIT_CLEANUP_EVERY_REQUESTS = 50;
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+let requestsSinceCleanup = 0;
 
 // Test helper to keep unit tests isolated from shared module state.
 export const __resetRateLimitStoreForTests = () => {
   rateLimitStore.clear();
 };
-
-const getClientIp = (request: NextRequest) =>
-  request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-  request.headers.get('x-real-ip') ??
-  'unknown';
 
 const applyRouteSecurityHeaders = (response: NextResponse) => {
   response.headers.set('X-Content-Type-Options', 'nosniff');
@@ -47,19 +44,24 @@ const errorResponse = (
 const checkRateLimit = (key: string) => {
   const now = Date.now();
 
-  // Opportunistic cleanup to prevent unbounded memory growth.
-  for (const [entryKey, entry] of rateLimitStore) {
-    if (entry.resetAt <= now) {
-      rateLimitStore.delete(entryKey);
+  requestsSinceCleanup += 1;
+  if (requestsSinceCleanup >= RATE_LIMIT_CLEANUP_EVERY_REQUESTS) {
+    requestsSinceCleanup = 0;
+
+    // Opportunistic cleanup to prevent unbounded memory growth.
+    for (const [entryKey, entry] of rateLimitStore) {
+      if (entry.resetAt <= now) {
+        rateLimitStore.delete(entryKey);
+      }
     }
-  }
-  if (rateLimitStore.size > RATE_LIMIT_MAX_ENTRIES) {
-    const overflow = rateLimitStore.size - RATE_LIMIT_MAX_ENTRIES;
-    const sortedByExpiry = [...rateLimitStore.entries()].sort(
-      (a, b) => a[1].resetAt - b[1].resetAt
-    );
-    for (const [entryKey] of sortedByExpiry.slice(0, overflow)) {
-      rateLimitStore.delete(entryKey);
+    if (rateLimitStore.size > RATE_LIMIT_MAX_ENTRIES) {
+      const overflow = rateLimitStore.size - RATE_LIMIT_MAX_ENTRIES;
+      const sortedByExpiry = [...rateLimitStore.entries()].sort(
+        (a, b) => a[1].resetAt - b[1].resetAt
+      );
+      for (const [entryKey] of sortedByExpiry.slice(0, overflow)) {
+        rateLimitStore.delete(entryKey);
+      }
     }
   }
 
@@ -98,19 +100,7 @@ const parseAllowedOrigins = (request: NextRequest) => {
   return new Set([appOrigin]);
 };
 
-const getHeaderOrigin = (request: NextRequest) => {
-  const origin = request.headers.get('origin');
-  if (origin) return origin;
-
-  const referer = request.headers.get('referer');
-  if (!referer) return null;
-
-  try {
-    return new URL(referer).origin;
-  } catch {
-    return null;
-  }
-};
+const getHeaderOrigin = (request: NextRequest) => request.headers.get('origin');
 
 export async function POST(request: NextRequest) {
   const allowedOrigins = parseAllowedOrigins(request);
@@ -134,7 +124,7 @@ export async function POST(request: NextRequest) {
     return errorResponse({ code: 'unauthenticated', message: 'Unauthorized' }, 401);
   }
 
-  const rateLimitKey = `${user.id}:${getClientIp(request)}`;
+  const rateLimitKey = user.id;
   const rateLimitResult = checkRateLimit(rateLimitKey);
   if (rateLimitResult.limited) {
     return errorResponse(

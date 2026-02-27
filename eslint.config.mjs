@@ -40,7 +40,7 @@ const config = [
         {
           patterns: [
             {
-              group: ['@/utils/supabase/*', '@supabase/*'],
+              group: ['@/utils/supabase/**/*', '@supabase/**/*'],
               message: 'Use AuthContext or server utilities; do not call Supabase directly in UI.',
             },
           ],

@@ -54,4 +54,38 @@ describe('proxy middleware', () => {
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toContain('/');
   });
+
+  it('redirects to /login when getUser rejects', async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://project.supabase.co';
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';
+
+    mockCreateServerClient.mockReturnValue({
+      auth: {
+        getUser: vi.fn().mockRejectedValue(new Error('Network error')),
+      },
+    });
+
+    const request = new NextRequest('http://localhost:3000/booking/vehicle');
+    const response = await proxy(request);
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain('/login');
+  });
+
+  it('redirects to /login when getUser resolves with null user', async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://project.supabase.co';
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';
+
+    mockCreateServerClient.mockReturnValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
+      },
+    });
+
+    const request = new NextRequest('http://localhost:3000/booking/vehicle');
+    const response = await proxy(request);
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain('/login');
+  });
 });

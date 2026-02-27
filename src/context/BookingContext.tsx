@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useReducer, type ReactNode } from 'react';
-import type { BookingStep, VehicleType, CustomerDetails, PaymentDetails } from '@/types/booking';
+import type { BookingStep, VehicleType, CustomerDetails } from '@/types/booking';
 
 interface BookingState {
   currentStep: BookingStep;
@@ -11,7 +11,6 @@ interface BookingState {
   selectedDate: Date | null;
   selectedTime: string | null;
   customerDetails: CustomerDetails;
-  paymentDetails: PaymentDetails;
 }
 
 type BookingAction =
@@ -22,7 +21,6 @@ type BookingAction =
   | { type: 'SET_DATE'; payload: Date }
   | { type: 'SET_TIME'; payload: string }
   | { type: 'SET_CUSTOMER_DETAILS'; payload: Partial<CustomerDetails> }
-  | { type: 'SET_PAYMENT_DETAILS'; payload: Partial<PaymentDetails> }
   | { type: 'RESET_BOOKING' };
 
 const initialState: BookingState = {
@@ -42,12 +40,6 @@ const initialState: BookingState = {
     state: '',
     zipCode: '',
     specialRequests: '',
-  },
-  paymentDetails: {
-    cardNumber: '',
-    expiryDate: '',
-    cvv: '',
-    cardholderName: '',
   },
 };
 
@@ -72,8 +64,6 @@ const bookingReducer = (state: BookingState, action: BookingAction): BookingStat
       return { ...state, selectedTime: action.payload };
     case 'SET_CUSTOMER_DETAILS':
       return { ...state, customerDetails: { ...state.customerDetails, ...action.payload } };
-    case 'SET_PAYMENT_DETAILS':
-      return { ...state, paymentDetails: { ...state.paymentDetails, ...action.payload } };
     case 'RESET_BOOKING':
       return initialState;
     default:

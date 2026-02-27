@@ -43,13 +43,6 @@ export interface CustomerDetails {
   specialRequests: string;
 }
 
-export interface PaymentDetails {
-  cardNumber: string;
-  expiryDate: string;
-  cvv: string;
-  cardholderName: string;
-}
-
 export type BookingStep = 'vehicle' | 'services' | 'schedule' | 'customer' | 'payment';
 
 export interface BookingState {
@@ -60,5 +53,4 @@ export interface BookingState {
   selectedDate: Date | null;
   selectedTime: string | null;
   customerDetails: CustomerDetails;
-  paymentDetails: PaymentDetails;
 }

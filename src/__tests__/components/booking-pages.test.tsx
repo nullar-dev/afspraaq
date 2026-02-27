@@ -38,7 +38,7 @@ function SeededPaymentPage() {
       <button onClick={() => dispatch({ type: 'TOGGLE_ADDON', payload: 'wheel-coating' })}>
         seed-addon
       </button>
-      <button onClick={() => dispatch({ type: 'SET_DATE', payload: new Date('2026-03-15') })}>
+      <button onClick={() => dispatch({ type: 'SET_DATE', payload: new Date(2026, 2, 15) })}>
         seed-date
       </button>
       <button onClick={() => dispatch({ type: 'SET_TIME', payload: '10:00 AM' })}>seed-time</button>
@@ -75,8 +75,11 @@ describe('Booking Pages', () => {
   it('renders schedule page and selects date/time', async () => {
     renderWithBooking(<SchedulePage />);
 
-    const dayButton = screen.getByRole('button', { name: '28' });
-    fireEvent.click(dayButton);
+    const selectableDayButton = screen
+      .getAllByRole('button')
+      .find(button => /^\d+$/.test(button.textContent ?? '') && !button.hasAttribute('disabled'));
+    expect(selectableDayButton).toBeDefined();
+    fireEvent.click(selectableDayButton!);
     fireEvent.click(screen.getByRole('button', { name: '10:00 AM' }));
 
     await waitFor(() => {
@@ -127,7 +130,7 @@ describe('Booking Pages', () => {
     const activeButton = screen
       .getAllByRole('button', { name: /complete booking/i })
       .find(button => !button.hasAttribute('disabled'));
-    expect(activeButton).toBeTruthy();
+    expect(activeButton).toBeDefined();
     fireEvent.click(activeButton!);
 
     act(() => {

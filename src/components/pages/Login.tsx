@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Check, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -19,6 +19,7 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const successMessage = useMemo(
@@ -29,23 +30,47 @@ const Login: React.FC = () => {
     [searchParams]
   );
 
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem('rememberedEmail');
+    if (rememberedEmail) {
+      setEmail(rememberedEmail);
+      setRememberMe(true);
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) return;
+    if (!email || !password) {
+      setError('Please enter both email and password.');
+      return;
+    }
+    if (isSubmitting || state.isLoading) return;
 
     setError('');
+    setIsSubmitting(true);
 
     try {
       await login(email, password);
+      if (rememberMe) {
+        localStorage.setItem('rememberedEmail', email);
+      } else {
+        localStorage.removeItem('rememberedEmail');
+      }
       const redirectParam = searchParams.get('redirect');
       const safeRedirect =
-        redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('//')
+        redirectParam &&
+        redirectParam.length <= 200 &&
+        redirectParam.startsWith('/') &&
+        !redirectParam.startsWith('//') &&
+        !redirectParam.includes('\\')
           ? redirectParam
           : '/booking/vehicle';
       router.push(safeRedirect);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to sign in. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -183,8 +208,14 @@ const Login: React.FC = () => {
 
           <div className="flex items-center justify-between">
             <label className="flex items-center gap-2 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={e => setRememberMe(e.target.checked)}
+                className="sr-only"
+                aria-label="Remember me"
+              />
               <div
-                onClick={() => setRememberMe(!rememberMe)}
                 className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
                   rememberMe ? 'bg-gold border-gold' : 'border-[#4A4A4A] group-hover:border-gold/50'
                 }`}
@@ -207,10 +238,10 @@ const Login: React.FC = () => {
 
           <Button
             type="submit"
-            disabled={state.isLoading || !email || !password}
+            disabled={state.isLoading || isSubmitting || !email || !password}
             className="w-full bg-gold hover:bg-gold-light text-[#0A0A0A] font-bold py-5 sm:py-6 rounded-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-gold disabled:opacity-50 disabled:cursor-not-allowed text-base sm:text-lg"
           >
-            {state.isLoading ? (
+            {state.isLoading || isSubmitting ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="w-5 h-5 animate-spin" />
                 Signing in...

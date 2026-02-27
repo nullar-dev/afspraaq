@@ -11,22 +11,30 @@ const InvestmentSummary: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [animatedTotal, setAnimatedTotal] = useState(0);
   const animatedTotalRef = useRef(0);
+  const animationFrameRef = useRef<number | null>(null);
 
   const summary = useMemo(() => {
-    const items: { name: string; price: number; description?: string; type: string }[] = [];
-    let subtotal = 0;
+    const items: {
+      id: string;
+      name: string;
+      priceCents: number;
+      description?: string;
+      type: string;
+    }[] = [];
+    let subtotalCents = 0;
 
     // Vehicle
     if (state.selectedVehicle) {
       const vehicle = vehicles.find(v => v.id === state.selectedVehicle);
       if (vehicle && vehicle.price > 0) {
         items.push({
+          id: `vehicle-${vehicle.id}`,
           name: vehicle.name,
-          price: vehicle.price,
+          priceCents: Math.round(vehicle.price * 100),
           description: 'Base vehicle',
           type: 'vehicle',
         });
-        subtotal += vehicle.price;
+        subtotalCents += Math.round(vehicle.price * 100);
       }
     }
 
@@ -35,11 +43,12 @@ const InvestmentSummary: React.FC = () => {
       const pkg = servicePackages.find(p => p.id === state.selectedPackage);
       if (pkg) {
         items.push({
+          id: `package-${pkg.id}`,
           name: pkg.name,
-          price: pkg.price,
+          priceCents: Math.round(pkg.price * 100),
           type: 'package',
         });
-        subtotal += pkg.price;
+        subtotalCents += Math.round(pkg.price * 100);
       }
     }
 
@@ -48,24 +57,25 @@ const InvestmentSummary: React.FC = () => {
       const addOn = addOns.find(a => a.id === addOnId);
       if (addOn) {
         items.push({
+          id: `addon-${addOn.id}`,
           name: addOn.name,
-          price: addOn.price,
+          priceCents: Math.round(addOn.price * 100),
           type: 'addon',
         });
-        subtotal += addOn.price;
+        subtotalCents += Math.round(addOn.price * 100);
       }
     });
 
-    const tax = subtotal * 0.08;
-    const total = subtotal + tax;
+    const taxCents = Math.round(subtotalCents * 0.08);
+    const totalCents = subtotalCents + taxCents;
 
-    return { items, subtotal, tax, total };
+    return { items, subtotalCents, taxCents, totalCents };
   }, [state.selectedVehicle, state.selectedPackage, state.selectedAddOns]);
 
   // Animate total changes
   useEffect(() => {
     const start = animatedTotalRef.current;
-    const end = summary.total;
+    const end = summary.totalCents / 100;
     const duration = 500;
     const startTime = Date.now();
 
@@ -79,12 +89,19 @@ const InvestmentSummary: React.FC = () => {
       animatedTotalRef.current = current;
 
       if (progress < 1) {
-        requestAnimationFrame(animate);
+        animationFrameRef.current = requestAnimationFrame(animate);
+      } else {
+        animationFrameRef.current = null;
       }
     };
 
-    requestAnimationFrame(animate);
-  }, [summary.total]);
+    animationFrameRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [summary.totalCents]);
 
   const canProceed = () => {
     switch (state.currentStep) {
@@ -180,7 +197,7 @@ const InvestmentSummary: React.FC = () => {
               <div className="space-y-3 animate-fade-in">
                 {summary.items.map((item, index) => (
                   <div
-                    key={index}
+                    key={item.id}
                     className="flex justify-between items-start py-2 border-b border-[#2A2A2A]/50 animate-fade-in-up"
                     style={{ animationDelay: `${index * 50}ms` }}
                   >
@@ -197,7 +214,7 @@ const InvestmentSummary: React.FC = () => {
                       )}
                     </div>
                     <span className="text-gold font-semibold text-sm">
-                      ${item.price.toFixed(2)}
+                      ${(item.priceCents / 100).toFixed(2)}
                     </span>
                   </div>
                 ))}
@@ -212,11 +229,13 @@ const InvestmentSummary: React.FC = () => {
           <div className="space-y-2 mb-4">
             <div className="flex justify-between text-sm">
               <span className="text-[#B0B0B0]">Subtotal</span>
-              <span className="text-white font-medium">${summary.subtotal.toFixed(2)}</span>
+              <span className="text-white font-medium">
+                ${(summary.subtotalCents / 100).toFixed(2)}
+              </span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-[#B0B0B0]">Tax (8%)</span>
-              <span className="text-white font-medium">${summary.tax.toFixed(2)}</span>
+              <span className="text-white font-medium">${(summary.taxCents / 100).toFixed(2)}</span>
             </div>
           </div>
 

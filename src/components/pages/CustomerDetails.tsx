@@ -6,19 +6,50 @@ import { useBooking } from '@/context/BookingContext';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import type { CustomerDetails as CustomerDetailsType } from '@/types/booking';
 
 const CustomerDetails: React.FC = () => {
   const { state, dispatch } = useBooking();
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [completedFields, setCompletedFields] = useState<string[]>([]);
+  const [specialRequestCount, setSpecialRequestCount] = useState(0);
 
-  const handleInputChange = (field: keyof typeof state.customerDetails, value: string) => {
-    dispatch({ type: 'SET_CUSTOMER_DETAILS', payload: { [field]: value } });
+  const sanitizeValue = (field: keyof CustomerDetailsType, value: string) => {
+    switch (field) {
+      case 'firstName':
+      case 'lastName':
+        return value.slice(0, 60);
+      case 'email':
+        return value.trim().toLowerCase().slice(0, 254);
+      case 'phone':
+        return value.replace(/[^\d()+\-\s]/g, '').slice(0, 25);
+      case 'address':
+        return value.slice(0, 120);
+      case 'city':
+        return value.slice(0, 60);
+      case 'state':
+        return value.slice(0, 30);
+      case 'zipCode':
+        return value.replace(/[^\d-]/g, '').slice(0, 10);
+      case 'specialRequests':
+        return value.slice(0, 500);
+      default:
+        return value;
+    }
+  };
+
+  const handleInputChange = (field: keyof CustomerDetailsType, value: string) => {
+    const sanitized = sanitizeValue(field, value);
+    dispatch({ type: 'SET_CUSTOMER_DETAILS', payload: { [field]: sanitized } });
+
+    if (field === 'specialRequests') {
+      setSpecialRequestCount(sanitized.length);
+    }
 
     // Track completed fields for animation
-    if (value.trim() && !completedFields.includes(field)) {
+    if (sanitized.trim() && !completedFields.includes(field)) {
       setCompletedFields([...completedFields, field]);
-    } else if (!value.trim() && completedFields.includes(field)) {
+    } else if (!sanitized.trim() && completedFields.includes(field)) {
       setCompletedFields(completedFields.filter(f => f !== field));
     }
   };
@@ -34,17 +65,48 @@ const CustomerDetails: React.FC = () => {
     ${completedFields.includes(fieldName) ? 'border-green-500/50' : ''}
   `;
 
-  const formFields = [
-    { id: 'firstName', label: 'First Name', icon: User, placeholder: 'John', type: 'text' },
-    { id: 'lastName', label: 'Last Name', icon: User, placeholder: 'Doe', type: 'text' },
+  const formFields: {
+    id: keyof CustomerDetailsType;
+    label: string;
+    icon: typeof User;
+    placeholder: string;
+    type: 'text' | 'email' | 'tel';
+    maxLength: number;
+    pattern?: string;
+  }[] = [
+    {
+      id: 'firstName',
+      label: 'First Name',
+      icon: User,
+      placeholder: 'John',
+      type: 'text',
+      maxLength: 60,
+    },
+    {
+      id: 'lastName',
+      label: 'Last Name',
+      icon: User,
+      placeholder: 'Doe',
+      type: 'text',
+      maxLength: 60,
+    },
     {
       id: 'email',
       label: 'Email Address',
       icon: Mail,
       placeholder: 'john@example.com',
       type: 'email',
+      maxLength: 254,
     },
-    { id: 'phone', label: 'Phone Number', icon: Phone, placeholder: '(555) 123-4567', type: 'tel' },
+    {
+      id: 'phone',
+      label: 'Phone Number',
+      icon: Phone,
+      placeholder: '(555) 123-4567',
+      type: 'tel',
+      maxLength: 25,
+      pattern: '[0-9()+\\-\\s]{7,25}',
+    },
   ];
 
   const addressFields = [
@@ -107,15 +169,12 @@ const CustomerDetails: React.FC = () => {
                       id={field.id}
                       type={field.type}
                       placeholder={field.placeholder}
-                      value={state.customerDetails[field.id as keyof typeof state.customerDetails]}
-                      onChange={e =>
-                        handleInputChange(
-                          field.id as keyof typeof state.customerDetails,
-                          e.target.value
-                        )
-                      }
+                      value={state.customerDetails[field.id]}
+                      onChange={e => handleInputChange(field.id, e.target.value)}
                       onFocus={() => setFocusedField(field.id)}
                       onBlur={() => setFocusedField(null)}
+                      maxLength={field.maxLength}
+                      pattern={field.pattern}
                       className={inputClasses(field.id)}
                     />
                     {completedFields.includes(field.id) && (
@@ -162,6 +221,7 @@ const CustomerDetails: React.FC = () => {
                     onChange={e => handleInputChange('address', e.target.value)}
                     onFocus={() => setFocusedField('address')}
                     onBlur={() => setFocusedField(null)}
+                    maxLength={120}
                     className={inputClasses('address')}
                   />
                   {completedFields.includes('address') && (
@@ -189,17 +249,13 @@ const CustomerDetails: React.FC = () => {
                         id={field.id}
                         type="text"
                         placeholder={field.placeholder}
-                        value={
-                          state.customerDetails[field.id as keyof typeof state.customerDetails]
-                        }
+                        value={state.customerDetails[field.id as keyof CustomerDetailsType]}
                         onChange={e =>
-                          handleInputChange(
-                            field.id as keyof typeof state.customerDetails,
-                            e.target.value
-                          )
+                          handleInputChange(field.id as keyof CustomerDetailsType, e.target.value)
                         }
                         onFocus={() => setFocusedField(field.id)}
                         onBlur={() => setFocusedField(null)}
+                        maxLength={field.id === 'zipCode' ? 10 : field.id === 'state' ? 30 : 60}
                         className={inputClasses(field.id)}
                       />
                       {completedFields.includes(field.id) && (
@@ -235,8 +291,10 @@ const CustomerDetails: React.FC = () => {
                 onChange={e => handleInputChange('specialRequests', e.target.value)}
                 onFocus={() => setFocusedField('specialRequests')}
                 onBlur={() => setFocusedField(null)}
+                maxLength={500}
                 className={`${inputClasses('specialRequests')} min-h-[120px] resize-none`}
               />
+              <p className="text-xs text-[#6B6B6B] text-right">{specialRequestCount}/500</p>
             </div>
           </div>
         </form>
@@ -256,7 +314,7 @@ const CustomerDetails: React.FC = () => {
             Your Information is Secure
           </h4>
           <p className="text-[#6B6B6B] text-sm leading-relaxed">
-            All data is encrypted with 256-bit SSL and will only be used to confirm your
+            Data is encrypted in transit using modern TLS and will only be used to confirm your
             appointment. We never share your information with third parties.
           </p>
         </div>

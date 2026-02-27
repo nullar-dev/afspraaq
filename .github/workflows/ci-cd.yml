@@ -343,8 +343,8 @@ jobs:
         uses: actions/upload-artifact@v6.0.0
         with:
           name: build
-          path: |
-            .next/
-            dist/
+          path: .next/
           retention-days: ${{ env.BUILD_RETENTION_DAYS }}
           compression-level: 6
+          if-no-files-found: error
+          include-hidden-files: true

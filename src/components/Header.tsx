@@ -101,6 +101,7 @@ const Header: React.FC = () => {
           <button
             className="lg:hidden p-2 text-[#B0B0B0] hover:text-white transition-colors"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>

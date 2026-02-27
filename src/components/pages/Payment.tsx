@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CreditCard, Lock, Shield, Check, Sparkles, Calendar, Clock, Car } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useBooking } from '@/context/BookingContext';
@@ -24,6 +24,15 @@ const Payment: React.FC = () => {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [cardType, setCardType] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  const [paymentDetails, setPaymentDetails] = useState({
+    cardNumber: '',
+    expiryDate: '',
+    cvv: '',
+    cardholderName: '',
+  });
+  const [confirmationCode, setConfirmationCode] = useState('');
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const completionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const confettiParticles = useMemo(
     () =>
@@ -36,7 +45,7 @@ const Payment: React.FC = () => {
     []
   );
 
-  const handleInputChange = (field: keyof typeof state.paymentDetails, value: string) => {
+  const handleInputChange = (field: keyof typeof paymentDetails, value: string) => {
     // Format card number with spaces
     if (field === 'cardNumber') {
       const cleanValue = value.replace(/\s/g, '').replace(/\D/g, '');
@@ -64,16 +73,19 @@ const Payment: React.FC = () => {
       value = value.replace(/\D/g, '').slice(0, 4);
     }
 
-    dispatch({ type: 'SET_PAYMENT_DETAILS', payload: { [field]: value } });
+    setPaymentDetails(prev => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = () => {
+    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
+
     setIsProcessing(true);
     // Animate progress
-    const interval = setInterval(() => {
+    progressIntervalRef.current = setInterval(() => {
       setProgress(prev => {
         if (prev >= 100) {
-          clearInterval(interval);
+          if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
           return 100;
         }
         return prev + 5;
@@ -81,20 +93,37 @@ const Payment: React.FC = () => {
     }, 100);
 
     // Simulate payment processing
-    setTimeout(() => {
+    completionTimeoutRef.current = setTimeout(() => {
       setIsProcessing(false);
       setShowSuccess(true);
       setProgress(0);
+      setConfirmationCode(createMockConfirmationCode());
     }, 2200);
   };
 
+  useEffect(
+    () => () => {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
+    },
+    []
+  );
+
   const canSubmit = () => {
-    const { cardNumber, expiryDate, cvv, cardholderName } = state.paymentDetails;
+    const { cardNumber, expiryDate, cvv, cardholderName } = paymentDetails;
+    const cardDigits = cardNumber.replace(/\s/g, '');
+    const [monthText, yearText] = expiryDate.split('/');
+    const month = Number(monthText);
+    const year = Number(yearText);
+    const isValidMonth = Number.isInteger(month) && month >= 1 && month <= 12;
+    const isValidYear = Number.isInteger(year) && yearText?.length === 2;
     return (
-      cardNumber.replace(/\s/g, '').length >= 16 &&
+      cardDigits.length === 16 &&
       expiryDate.length === 5 &&
-      cvv.length >= 3 &&
-      cardholderName.length > 0
+      isValidMonth &&
+      isValidYear &&
+      (cvv.length === 3 || cvv.length === 4) &&
+      cardholderName.trim().length > 0
     );
   };
 
@@ -109,28 +138,28 @@ const Payment: React.FC = () => {
   `;
 
   // Calculate total
-  const getTotal = () => {
-    let total = 0;
+  const getTotalCents = () => {
+    let totalCents = 0;
 
     // Vehicle base price
     if (state.selectedVehicle) {
       const vehicle = vehicles.find(v => v.id === state.selectedVehicle);
-      if (vehicle) total += vehicle.price;
+      if (vehicle) totalCents += Math.round(vehicle.price * 100);
     }
 
     // Package price
     if (state.selectedPackage) {
       const pkg = servicePackages.find(p => p.id === state.selectedPackage);
-      if (pkg) total += pkg.price;
+      if (pkg) totalCents += Math.round(pkg.price * 100);
     }
 
     // Add-ons
     state.selectedAddOns.forEach(addOnId => {
       const addOn = addOns.find(a => a.id === addOnId);
-      if (addOn) total += addOn.price;
+      if (addOn) totalCents += Math.round(addOn.price * 100);
     });
 
-    return total;
+    return totalCents;
   };
 
   const getOrderSummary = () => {
@@ -161,33 +190,24 @@ const Payment: React.FC = () => {
     return items;
   };
 
-  const confirmationCode = useMemo(() => {
-    const seed = [
-      state.selectedVehicle ?? 'vehicle',
-      state.selectedPackage ?? 'package',
-      state.selectedDate?.toISOString().slice(0, 10) ?? 'date',
-      state.selectedTime ?? 'time',
-      state.customerDetails.email || 'email',
-    ].join('|');
-
-    let hash = 0;
-    for (let i = 0; i < seed.length; i += 1) {
-      hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-    }
-
-    return `GC-${hash.toString(36).toUpperCase().padStart(9, '0').slice(0, 9)}`;
-  }, [
-    state.customerDetails.email,
-    state.selectedDate,
-    state.selectedPackage,
-    state.selectedTime,
-    state.selectedVehicle,
-  ]);
+  const subtotalCents = getTotalCents();
+  const taxCents = Math.round(subtotalCents * 0.08);
+  const totalCents = subtotalCents + taxCents;
 
   const handleBookAnother = () => {
     dispatch({ type: 'RESET_BOOKING' });
     setShowSuccess(false);
+    setPaymentDetails({ cardNumber: '', expiryDate: '', cvv: '', cardholderName: '' });
     router.push('/booking/vehicle');
+  };
+
+  const createMockConfirmationCode = () => {
+    const randomNumber =
+      typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function'
+        ? crypto.getRandomValues(new Uint32Array(1))[0]
+        : Math.floor(Math.random() * 0xffffffff);
+    const randomPart = randomNumber.toString(36).toUpperCase().padStart(9, '0').slice(0, 9);
+    return `GC-${randomPart}`;
   };
 
   return (
@@ -242,7 +262,7 @@ const Payment: React.FC = () => {
                     id="cardNumber"
                     type="text"
                     placeholder="0000 0000 0000 0000"
-                    value={state.paymentDetails.cardNumber}
+                    value={paymentDetails.cardNumber}
                     onChange={e => handleInputChange('cardNumber', e.target.value)}
                     onFocus={() => setFocusedField('cardNumber')}
                     onBlur={() => setFocusedField(null)}
@@ -288,7 +308,7 @@ const Payment: React.FC = () => {
                     id="expiryDate"
                     type="text"
                     placeholder="MM/YY"
-                    value={state.paymentDetails.expiryDate}
+                    value={paymentDetails.expiryDate}
                     onChange={e => handleInputChange('expiryDate', e.target.value)}
                     onFocus={() => setFocusedField('expiryDate')}
                     onBlur={() => setFocusedField(null)}
@@ -309,7 +329,7 @@ const Payment: React.FC = () => {
                     id="cvv"
                     type="password"
                     placeholder="•••"
-                    value={state.paymentDetails.cvv}
+                    value={paymentDetails.cvv}
                     onChange={e => handleInputChange('cvv', e.target.value)}
                     onFocus={() => setFocusedField('cvv')}
                     onBlur={() => setFocusedField(null)}
@@ -333,7 +353,7 @@ const Payment: React.FC = () => {
                   id="cardholderName"
                   type="text"
                   placeholder="JOHN DOE"
-                  value={state.paymentDetails.cardholderName}
+                  value={paymentDetails.cardholderName}
                   onChange={e => handleInputChange('cardholderName', e.target.value.toUpperCase())}
                   onFocus={() => setFocusedField('cardholderName')}
                   onBlur={() => setFocusedField(null)}
@@ -347,7 +367,7 @@ const Payment: React.FC = () => {
               <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
                 <div className="flex items-center gap-2 text-[#6B6B6B] text-xs">
                   <Lock className="w-4 h-4" />
-                  <span>256-bit SSL</span>
+                  <span>TLS encryption</span>
                 </div>
                 <div className="flex items-center gap-2 text-[#6B6B6B] text-xs">
                   <Shield className="w-4 h-4" />
@@ -445,17 +465,17 @@ const Payment: React.FC = () => {
               <div className="pt-4">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-[#B0B0B0]">Subtotal</span>
-                  <span className="text-white">${getTotal().toFixed(2)}</span>
+                  <span className="text-white">${(subtotalCents / 100).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-[#B0B0B0]">Tax (8%)</span>
-                  <span className="text-white">${(getTotal() * 0.08).toFixed(2)}</span>
+                  <span className="text-white">${(taxCents / 100).toFixed(2)}</span>
                 </div>
                 <div className="h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent mb-4" />
                 <div className="flex justify-between items-center">
                   <span className="text-white font-semibold">Total</span>
                   <span className="text-3xl font-bold text-gold">
-                    ${(getTotal() * 1.08).toFixed(2)}
+                    ${(totalCents / 100).toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -531,7 +551,7 @@ const Payment: React.FC = () => {
                   Confirmation Number
                 </p>
                 <p className="text-gold font-mono text-xl sm:text-2xl font-bold tracking-wider">
-                  {confirmationCode}
+                  {confirmationCode || 'GC-PENDING'}
                 </p>
               </div>
 

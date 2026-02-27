@@ -57,7 +57,7 @@ function StepControls() {
       <button onClick={() => dispatch({ type: 'SET_PACKAGE', payload: 'premium' })}>
         has-package
       </button>
-      <button onClick={() => dispatch({ type: 'SET_DATE', payload: new Date('2026-03-15') })}>
+      <button onClick={() => dispatch({ type: 'SET_DATE', payload: new Date(2026, 2, 15) })}>
         has-date
       </button>
       <button onClick={() => dispatch({ type: 'SET_TIME', payload: '9:00 AM' })}>has-time</button>

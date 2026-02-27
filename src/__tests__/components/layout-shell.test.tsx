@@ -76,10 +76,8 @@ describe('Booking shell components', () => {
 
   it('opens mobile menu and renders nav links', () => {
     render(<Header />);
-    const buttons = screen.getAllByRole('button');
-    const menuButton = buttons[buttons.length - 1];
-    expect(menuButton).toBeTruthy();
-    fireEvent.click(menuButton!);
+    const menuButton = screen.getByRole('button', { name: /open menu/i });
+    fireEvent.click(menuButton);
     expect(screen.getAllByText('Support').length).toBeGreaterThan(1);
     expect(screen.getAllByText('Dashboard').length).toBeGreaterThan(1);
   });

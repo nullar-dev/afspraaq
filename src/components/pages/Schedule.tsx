@@ -47,9 +47,9 @@ const Schedule: React.FC = () => {
 
   const isDateDisabled = (day: number) => {
     const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return date < today;
+    const now = new Date();
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return date < todayMidnight;
   };
 
   const monthNames = [
@@ -208,18 +208,20 @@ const Schedule: React.FC = () => {
             Your Selection
           </h4>
           <div className="flex flex-wrap gap-4 sm:gap-6">
-            {state.selectedDate && (
-              <div className="flex items-center gap-3 bg-[#0A0A0A]/50 rounded-xl px-4 py-3">
-                <CalendarIcon className="w-5 h-5 text-gold" />
-                <span className="text-white font-medium">
-                  {state.selectedDate.toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
-                </span>
-              </div>
-            )}
+            {state.selectedDate &&
+              state.selectedDate instanceof Date &&
+              !Number.isNaN(state.selectedDate.getTime()) && (
+                <div className="flex items-center gap-3 bg-[#0A0A0A]/50 rounded-xl px-4 py-3">
+                  <CalendarIcon className="w-5 h-5 text-gold" />
+                  <span className="text-white font-medium">
+                    {state.selectedDate.toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </span>
+                </div>
+              )}
             {state.selectedTime && (
               <div className="flex items-center gap-3 bg-[#0A0A0A]/50 rounded-xl px-4 py-3">
                 <Clock className="w-5 h-5 text-gold" />

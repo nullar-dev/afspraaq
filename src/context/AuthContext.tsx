@@ -178,10 +178,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     const requiresEmailVerification = !result.session;
-
-    if (requiresEmailVerification) {
-      setState(prev => ({ ...prev, isLoading: false }));
-    }
+    setState(prev => ({ ...prev, isLoading: false }));
 
     return { requiresEmailVerification };
   };

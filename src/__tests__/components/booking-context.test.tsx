@@ -20,7 +20,7 @@ function BookingHarness() {
       <button onClick={() => dispatch({ type: 'TOGGLE_ADDON', payload: 'wheel-coating' })}>
         addon
       </button>
-      <button onClick={() => dispatch({ type: 'SET_DATE', payload: new Date('2026-03-10') })}>
+      <button onClick={() => dispatch({ type: 'SET_DATE', payload: new Date(2026, 2, 10) })}>
         date
       </button>
       <button onClick={() => dispatch({ type: 'SET_TIME', payload: '10:00 AM' })}>time</button>
@@ -38,21 +38,6 @@ function BookingHarness() {
         }
       >
         customer
-      </button>
-      <button
-        onClick={() =>
-          dispatch({
-            type: 'SET_PAYMENT_DETAILS',
-            payload: {
-              cardNumber: '4111111111111111',
-              expiryDate: '12/28',
-              cvv: '123',
-              cardholderName: 'JANE DOE',
-            },
-          })
-        }
-      >
-        payment
       </button>
       <button onClick={() => dispatch({ type: 'RESET_BOOKING' })}>reset</button>
     </div>
@@ -85,8 +70,6 @@ describe('BookingContext', () => {
     fireEvent.click(screen.getByText('time'));
     fireEvent.click(screen.getByText('date'));
     fireEvent.click(screen.getByText('customer'));
-    fireEvent.click(screen.getByText('payment'));
-
     expect(screen.getByTestId('vehicle').textContent).toBe('sedan');
     expect(screen.getByTestId('package').textContent).toBe('premium');
     expect(screen.getByTestId('addons').textContent).toBe('none');

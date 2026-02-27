@@ -47,7 +47,14 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const redirectParam = request.nextUrl.searchParams.get('redirect');
-  const safeRedirect = redirectParam && redirectParam.startsWith('/') ? redirectParam : '/';
+  const safeRedirect =
+    redirectParam &&
+    redirectParam.length <= 200 &&
+    redirectParam.startsWith('/') &&
+    !redirectParam.startsWith('//') &&
+    !redirectParam.includes('\\')
+      ? redirectParam
+      : '/';
 
   const publicRoutes = ['/login', '/register', '/'];
   const isPublicRoute = publicRoutes.includes(pathname);

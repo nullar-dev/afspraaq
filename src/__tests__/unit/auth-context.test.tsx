@@ -173,7 +173,7 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('auth-state').textContent).toBe('no');
     });
 
-    await act(async () => {
+    act(() => {
       authCallback?.('SIGNED_IN', {
         user: {
           id: 'u2',
@@ -205,6 +205,8 @@ describe('AuthContext', () => {
           .fn()
           .mockResolvedValueOnce({ data: null, error: { message: 'Too many requests' } })
           .mockResolvedValueOnce({ data: null, error: { message: 'Password weak' } })
+          .mockResolvedValueOnce({ data: null, error: { message: 'User already registered' } })
+          .mockResolvedValueOnce({ data: null, error: { message: 'Invalid email format' } })
           .mockResolvedValueOnce({ data: null, error: { message: 'other' } }),
         signOut: vi.fn().mockResolvedValue({ error: null }),
         onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
@@ -231,6 +233,16 @@ describe('AuthContext', () => {
     fireEvent.click(screen.getByText('register-fail'));
     await waitFor(() =>
       expect(screen.getByTestId('message').textContent).toContain('Password does not meet')
+    );
+
+    fireEvent.click(screen.getByText('register-fail'));
+    await waitFor(() =>
+      expect(screen.getByTestId('message').textContent).toContain('Unable to create account')
+    );
+
+    fireEvent.click(screen.getByText('register-fail'));
+    await waitFor(() =>
+      expect(screen.getByTestId('message').textContent).toContain('Unable to create account')
     );
 
     fireEvent.click(screen.getByText('register-fail'));

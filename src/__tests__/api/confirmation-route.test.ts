@@ -85,6 +85,33 @@ describe('bookings confirmation route', () => {
     expect(body.error.code).toBe('forbidden_origin');
   });
 
+  it('logs missing ALLOWED_ORIGINS once in production', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    delete process.env.ALLOWED_ORIGINS;
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    mockCreateClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u1' } } }),
+      },
+    });
+
+    const request = new NextRequest('https://nullar.dev/api/bookings/confirmation', {
+      method: 'POST',
+      headers: {
+        origin: 'https://nullar.dev',
+        'x-requested-with': 'XMLHttpRequest',
+      },
+    });
+
+    const first = await POST(request);
+    const second = await POST(request);
+    expect(first.status).toBe(403);
+    expect(second.status).toBe(403);
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+    consoleErrorSpy.mockRestore();
+  });
+
   it('returns 403 when origin header is missing', async () => {
     mockCreateClient.mockResolvedValue({
       auth: {
@@ -227,5 +254,64 @@ describe('bookings confirmation route', () => {
     if (!response) throw new Error('Expected a response from POST');
     expect(response.status).toBe(429);
     expect(response.headers.get('retry-after')).toBeTruthy();
+  });
+
+  it('rate limits per user even if user-agent changes between requests', async () => {
+    mockCreateClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'rate-user-ua' } } }),
+      },
+    });
+
+    let response: Awaited<ReturnType<typeof POST>> | null = null;
+    for (let i = 0; i < 31; i += 1) {
+      const request = new NextRequest('http://localhost:3000/api/bookings/confirmation', {
+        method: 'POST',
+        headers: {
+          origin: 'http://localhost:3000',
+          'x-requested-with': 'XMLHttpRequest',
+          'user-agent': `agent-${i}`,
+        },
+      });
+      response = await POST(request);
+    }
+
+    expect(response).not.toBeNull();
+    if (!response) throw new Error('Expected a response from POST');
+    expect(response.status).toBe(429);
+  });
+
+  it('triggers periodic rate-limit cleanup path without blocking valid traffic', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    let counter = 0;
+
+    mockCreateClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockImplementation(async () => {
+          counter += 1;
+          return { data: { user: { id: `cleanup-user-${counter}` } } };
+        }),
+      },
+    });
+
+    let response: Awaited<ReturnType<typeof POST>> | null = null;
+    for (let i = 0; i < 50; i += 1) {
+      if (i === 10) {
+        vi.setSystemTime(new Date('2026-01-01T00:01:05.000Z'));
+      }
+      const request = new NextRequest('http://localhost:3000/api/bookings/confirmation', {
+        method: 'POST',
+        headers: {
+          origin: 'http://localhost:3000',
+          'x-requested-with': 'XMLHttpRequest',
+        },
+      });
+      response = await POST(request);
+      expect(response.status).toBe(200);
+    }
+
+    expect(response).not.toBeNull();
+    vi.useRealTimers();
   });
 });

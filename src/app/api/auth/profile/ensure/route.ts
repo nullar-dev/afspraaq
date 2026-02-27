@@ -11,10 +11,14 @@ const json = (body: unknown, status = 200) =>
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 10;
+const RATE_LIMIT_MAX_ENTRIES = 10_000;
+const RATE_LIMIT_CLEANUP_EVERY_REQUESTS = 25;
 const ensureRateLimitStore = new Map<string, { count: number; resetAt: number }>();
+let ensureRequestsSinceCleanup = 0;
 
 export const __resetEnsureProfileRateLimitForTests = () => {
   ensureRateLimitStore.clear();
+  ensureRequestsSinceCleanup = 0;
 };
 
 const parseAllowedOrigins = (request: NextRequest) => {
@@ -36,6 +40,30 @@ const parseAllowedOrigins = (request: NextRequest) => {
 
 const checkRateLimit = (key: string) => {
   const now = Date.now();
+
+  ensureRequestsSinceCleanup += 1;
+  if (ensureRequestsSinceCleanup >= RATE_LIMIT_CLEANUP_EVERY_REQUESTS) {
+    ensureRequestsSinceCleanup = 0;
+
+    for (const [entryKey, entry] of ensureRateLimitStore) {
+      if (entry.resetAt <= now) {
+        ensureRateLimitStore.delete(entryKey);
+      }
+    }
+
+    if (ensureRateLimitStore.size > RATE_LIMIT_MAX_ENTRIES) {
+      const overflow = ensureRateLimitStore.size - RATE_LIMIT_MAX_ENTRIES;
+      let removed = 0;
+      for (const [entryKey] of ensureRateLimitStore) {
+        ensureRateLimitStore.delete(entryKey);
+        removed += 1;
+        if (removed >= overflow) {
+          break;
+        }
+      }
+    }
+  }
+
   const current = ensureRateLimitStore.get(key);
   if (!current || current.resetAt <= now) {
     ensureRateLimitStore.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });

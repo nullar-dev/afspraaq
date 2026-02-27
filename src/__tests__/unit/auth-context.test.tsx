@@ -65,6 +65,23 @@ function AuthHarness() {
       <button
         onClick={async () => {
           try {
+            await register({
+              firstName: 'Jane',
+              lastName: 'Doe',
+              email: 'invalid-email',
+              password: 'Password123!',
+            });
+            setMessage('ok');
+          } catch (error) {
+            setMessage(error instanceof Error ? error.message : 'register-error');
+          }
+        }}
+      >
+        register-invalid-email
+      </button>
+      <button
+        onClick={async () => {
+          try {
             await loginWithOAuth('google');
           } catch {
             // expected in test
@@ -107,6 +124,17 @@ describe('AuthContext', () => {
 
     expect(screen.getByTestId('loading').textContent).toBe('idle');
     expect(screen.getByTestId('auth-state').textContent).toBe('no');
+  });
+
+  it('throws when useAuth is called outside provider', () => {
+    function OutsideProviderHarness() {
+      useAuth();
+      return <div>outside</div>;
+    }
+
+    expect(() => render(<OutsideProviderHarness />)).toThrow(
+      'useAuth must be used within an AuthProvider'
+    );
   });
 
   it('loads user, supports login/register/logout, and reacts to auth events', async () => {
@@ -273,6 +301,11 @@ describe('AuthContext', () => {
     );
 
     fireEvent.click(screen.getByText('register-fail'));
+    await waitFor(() =>
+      expect(screen.getByTestId('message').textContent).toContain('Unable to create account')
+    );
+
+    fireEvent.click(screen.getByText('register-invalid-email'));
     await waitFor(() =>
       expect(screen.getByTestId('message').textContent).toContain('Unable to create account')
     );

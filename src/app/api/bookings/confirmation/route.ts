@@ -14,6 +14,8 @@ let hasLoggedMissingAllowedOrigins = false;
 // Test helper to keep unit tests isolated from shared module state.
 export const __resetRateLimitStoreForTests = () => {
   rateLimitStore.clear();
+  requestsSinceCleanup = 0;
+  hasLoggedMissingAllowedOrigins = false;
 };
 
 const applyRouteSecurityHeaders = (response: NextResponse) => {
@@ -136,8 +138,8 @@ export async function POST(request: NextRequest) {
     return errorResponse({ code: 'unauthenticated', message: 'Unauthorized' }, 401);
   }
 
-  const userAgent = (request.headers.get('user-agent') ?? 'unknown').slice(0, 120);
-  const rateLimitKey = `${user.id}:${userAgent}`;
+  // Key by authenticated user only to avoid trivial bucket bypass via user-agent rotation.
+  const rateLimitKey = user.id;
   const rateLimitResult = checkRateLimit(rateLimitKey);
   if (rateLimitResult.limited) {
     return errorResponse(

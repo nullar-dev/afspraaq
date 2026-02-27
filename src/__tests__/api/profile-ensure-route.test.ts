@@ -200,4 +200,35 @@ describe('auth profile ensure route', () => {
     if (!response) throw new Error('Expected response');
     expect(response.status).toBe(429);
   });
+
+  it('triggers periodic profile ensure rate-limit cleanup path', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    let counter = 0;
+
+    mockUpsert.mockResolvedValue({ error: null });
+    mockCreateClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockImplementation(async () => {
+          counter += 1;
+          return {
+            data: { user: { id: `cleanup-profile-${counter}`, email: `u${counter}@x.com` } },
+          };
+        }),
+      },
+      from: vi.fn(() => ({ upsert: mockUpsert })),
+    });
+
+    let response: Awaited<ReturnType<typeof POST>> | null = null;
+    for (let i = 0; i < 25; i += 1) {
+      if (i === 10) {
+        vi.setSystemTime(new Date('2026-01-01T00:01:05.000Z'));
+      }
+      response = await POST(makeRequest());
+      expect(response.status).toBe(200);
+    }
+
+    expect(response).not.toBeNull();
+    vi.useRealTimers();
+  });
 });

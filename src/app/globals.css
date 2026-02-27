@@ -1,24 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap');
 
-@import 'tailwindcss';
-
-@theme {
-  --color-gold: #d4a853;
-  --color-gold-light: #e8c87a;
-  --color-gold-dark: #b8942f;
-  --color-bg-primary: #0a0a0a;
-  --color-bg-secondary: #141414;
-  --color-bg-tertiary: #1e1e1e;
-  --color-bg-hover: #252525;
-  --color-text-primary: #ffffff;
-  --color-text-secondary: #b0b0b0;
-  --color-text-muted: #6b6b6b;
-
-  --font-sans: Inter, sans-serif;
-  --font-display: 'Playfair Display', serif;
-
-  --radius-xl: 0.625rem;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @layer base {
   :root {
@@ -42,6 +26,10 @@
     --input: 0 0% 16%;
     --ring: 43 60% 58%;
     --radius: 0.625rem;
+
+    --color-gold: #d4a853;
+    --color-gold-light: #e8c87a;
+    --color-gold-dark: #b8942f;
   }
 
   * {
@@ -280,16 +268,16 @@ select:focus {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-bg-secondary);
+  background: #141414;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-bg-tertiary);
+  background: #1e1e1e;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-gold-dark);
+  background: #b8942f;
 }
 
 @media (prefers-reduced-motion: reduce) {

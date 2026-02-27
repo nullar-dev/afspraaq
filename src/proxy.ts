@@ -59,7 +59,7 @@ export async function proxy(request: NextRequest) {
   const safeRedirect = redirectParam && redirectParam.startsWith('/') ? redirectParam : '/';
 
   // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/register', '/'];
+  const publicRoutes = ['/login', '/register', '/', '/prototype'];
   const isPublicRoute = publicRoutes.includes(pathname);
 
   // If user is not logged in and trying to access protected route

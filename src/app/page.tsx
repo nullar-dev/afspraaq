@@ -184,10 +184,7 @@ export default function Home() {
               </div>
               <h3 className="text-white font-semibold text-lg mb-2">Deployment</h3>
               <p className="text-[#6B6B6B] text-sm">
-                Build:{' '}
-                {process.env.SOURCE_COMMIT?.slice(0, 7) ||
-                  process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ||
-                  'local'}
+                Build: {process.env.SOURCE_COMMIT?.slice(0, 7) || 'local'}
               </p>
             </div>
           </div>

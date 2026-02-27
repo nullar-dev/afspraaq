@@ -54,3 +54,6 @@ supabase/.temp/
 
 # Prototype (extracted, not needed in repo)
 prototype/
+
+# Claude Code
+.claude/

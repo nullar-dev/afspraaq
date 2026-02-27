@@ -4,7 +4,7 @@
 
 - Application code lives in `src/` using Next.js App Router.
 - Routes are under `src/app/` (for example: `src/app/login/page.tsx`, `src/app/register/page.tsx`).
-- Shared helpers and styling utilities are in `src/lib/` and `src/utils/` (Supabase clients are in `src/utils/supabase/`).
+- Shared helpers are in `src/utils/` (Supabase clients are in `src/utils/supabase/`).
 - Tests are grouped by type in `src/__tests__/`: `unit/`, `components/`, `api/`, and `e2e/`.
 - Database artifacts are in `supabase/` (`config.toml`, `migrations/*.sql`).
 

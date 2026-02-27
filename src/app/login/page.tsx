@@ -8,7 +8,41 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { getSupabaseClient } from '@/utils/supabase/client';
-import { inputClasses } from '@/lib/styles';
+
+const pageStyle: React.CSSProperties = {
+  minHeight: '100vh',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: '#0A0A0A',
+  padding: '40px 20px',
+};
+
+const cardStyle: React.CSSProperties = {
+  width: '100%',
+  maxWidth: '420px',
+  backgroundColor: '#141414',
+  borderRadius: '16px',
+  border: '1px solid #2A2A2A',
+  padding: '32px',
+};
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '20px 16px',
+  borderRadius: '12px',
+  border: '2px solid #2A2A2A',
+  backgroundColor: '#1E1E1E',
+  color: '#FFFFFF',
+  fontSize: '16px',
+  boxSizing: 'border-box',
+};
+
+const inputFocusedStyle: React.CSSProperties = {
+  ...inputStyle,
+  borderColor: '#D4A853',
+  boxShadow: '0 0 0 2px rgba(212, 168, 83, 0.2)',
+};
 
 function LoginForm() {
   const router = useRouter();
@@ -37,13 +71,9 @@ function LoginForm() {
       return;
     }
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      // Custom error messages - don't expose raw Supabase errors
       const errorMsg = error.message.toLowerCase();
       if (
         errorMsg.includes('invalid login credentials') ||
@@ -63,129 +93,141 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-8 animate-fade-in">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gold to-gold-light flex items-center justify-center mx-auto mb-4 animate-pulse-gold">
-            <Lock className="w-8 h-8 text-[#0A0A0A]" />
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">Welcome Back</h1>
-          <p className="text-[#B0B0B0] text-base">Sign in to continue to your account</p>
+    <div style={pageStyle}>
+      <div style={cardStyle}>
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <h1 style={{ color: '#FFFFFF', fontSize: '28px', marginBottom: '8px' }}>Welcome Back</h1>
+          <p style={{ color: '#B0B0B0', fontSize: '14px' }}>Sign in to continue to your account</p>
         </div>
 
-        {/* Login Form */}
-        <div className="bg-gradient-to-br from-[#141414] to-[#0F0F0F] rounded-2xl border border-[#2A2A2A] p-5 sm:p-8 animate-fade-in-up">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Email */}
-            <div className="space-y-2">
-              <Label
-                htmlFor="email"
-                className={`text-sm font-medium flex items-center gap-2 transition-colors ${
-                  focusedField === 'email' ? 'text-gold' : 'text-[#B0B0B0]'
-                }`}
-              >
-                <Mail className="w-4 h-4" />
-                Email Address
-              </Label>
-              <div className="relative">
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="john@example.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  onFocus={() => setFocusedField('email')}
-                  onBlur={() => setFocusedField(null)}
-                  className={inputClasses(focusedField, 'email')}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div className="space-y-2">
-              <Label
-                htmlFor="password"
-                className={`text-sm font-medium flex items-center gap-2 transition-colors ${
-                  focusedField === 'password' ? 'text-gold' : 'text-[#B0B0B0]'
-                }`}
-              >
-                <Lock className="w-4 h-4" />
-                Password
-              </Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  onFocus={() => setFocusedField('password')}
-                  onBlur={() => setFocusedField(null)}
-                  className={inputClasses(focusedField, 'password')}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Success */}
-            {successMessage && (
-              <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-500 text-sm">
-                {successMessage}
-              </div>
-            )}
-
-            {/* Error */}
-            {error && (
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
-                {error}
-              </div>
-            )}
-
-            {/* Submit */}
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full h-12 text-base font-semibold bg-gold hover:bg-gold-light text-[#0A0A0A] transition-all duration-300 rounded-xl"
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '20px' }}>
+            <Label
+              htmlFor="email"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                color: focusedField === 'email' ? '#D4A853' : '#B0B0B0',
+                fontSize: '14px',
+                marginBottom: '8px',
+              }}
             >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-[#0A0A0A]/30 border-t-[#0A0A0A] rounded-full animate-spin" />
-                  Signing in...
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  Sign In
-                  <ArrowRight className="w-5 h-5" />
-                </span>
-              )}
-            </Button>
-          </form>
-
-          {/* Divider */}
-          <div className="relative my-6">
-            <div className="h-px bg-gradient-to-r from-transparent via-[#2A2A2A] to-transparent" />
+              <Mail size={16} /> Email Address
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="john@example.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              onFocus={() => setFocusedField('email')}
+              onBlur={() => setFocusedField(null)}
+              style={focusedField === 'email' ? inputFocusedStyle : inputStyle}
+              required
+            />
           </div>
 
-          {/* Register Link */}
-          <p className="text-center text-[#B0B0B0] text-sm">
-            Don&apos;t have an account?{' '}
-            <Link
-              href="/register"
-              className="text-gold hover:text-gold-light font-medium transition-colors"
+          <div style={{ marginBottom: '20px' }}>
+            <Label
+              htmlFor="password"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                color: focusedField === 'password' ? '#D4A853' : '#B0B0B0',
+                fontSize: '14px',
+                marginBottom: '8px',
+              }}
             >
+              <Lock size={16} /> Password
+            </Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              onFocus={() => setFocusedField('password')}
+              onBlur={() => setFocusedField(null)}
+              style={focusedField === 'password' ? inputFocusedStyle : inputStyle}
+              required
+            />
+          </div>
+
+          {successMessage && (
+            <div
+              style={{
+                padding: '12px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                border: '1px solid rgba(34, 197, 94, 0.2)',
+                color: '#22C55E',
+                fontSize: '14px',
+                marginBottom: '16px',
+              }}
+            >
+              {successMessage}
+            </div>
+          )}
+          {error && (
+            <div
+              style={{
+                padding: '12px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                color: '#EF4444',
+                fontSize: '14px',
+                marginBottom: '16px',
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <Button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '16px',
+              backgroundColor: '#D4A853',
+              color: '#0A0A0A',
+              border: 'none',
+              borderRadius: '12px',
+              fontSize: '16px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+            }}
+          >
+            {loading ? (
+              'Signing in...'
+            ) : (
+              <>
+                <span>Sign In</span> <ArrowRight size={18} />
+              </>
+            )}
+          </Button>
+        </form>
+
+        <div style={{ marginTop: '24px', textAlign: 'center' }}>
+          <p style={{ color: '#B0B0B0', fontSize: '14px', marginBottom: '8px' }}>
+            Don&apos;t have an account?{' '}
+            <Link href="/register" style={{ color: '#D4A853' }}>
               Create one
             </Link>
           </p>
+          <p>
+            <Link href="/" style={{ color: '#6B6B6B', fontSize: '14px' }}>
+              ← Back to home
+            </Link>
+          </p>
         </div>
-
-        {/* Back to Home */}
-        <p className="text-center mt-6">
-          <Link href="/" className="text-[#6B6B6B] hover:text-gold text-sm transition-colors">
-            ← Back to home
-          </Link>
-        </p>
       </div>
     </div>
   );
@@ -193,8 +235,18 @@ function LoginForm() {
 
 export function LoginFormFallback() {
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center px-4 py-10">
-      <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+    <div style={pageStyle}>
+      <div
+        data-testid="loading-spinner"
+        style={{
+          width: '24px',
+          height: '24px',
+          border: '2px solid rgba(212, 168, 83, 0.3)',
+          borderTopColor: '#D4A853',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+        }}
+      />
     </div>
   );
 }

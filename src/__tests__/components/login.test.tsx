@@ -2,11 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-// Mock next/navigation
 const mockPush = vi.fn();
 const mockRefresh = vi.fn();
-
-// Create mock for useSearchParams that can be configured
 const mockUseSearchParams = vi.fn(() => new URLSearchParams());
 
 vi.mock('next/navigation', () => ({
@@ -17,7 +14,6 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => mockUseSearchParams(),
 }));
 
-// Mock Supabase client utility
 const mockGetSupabaseClient = vi.fn();
 const mockSignInWithPassword = vi.fn();
 
@@ -30,7 +26,6 @@ describe('Login Page', () => {
     vi.clearAllMocks();
     mockPush.mockResolvedValue(undefined);
     mockRefresh.mockResolvedValue(undefined);
-    // Reset search params to default (empty)
     mockUseSearchParams.mockReturnValue(new URLSearchParams());
     mockGetSupabaseClient.mockReturnValue({
       auth: {
@@ -188,13 +183,10 @@ describe('Login Page', () => {
   it('should render fallback with loading spinner', async () => {
     const { LoginFormFallback } = await import('../../app/login/page');
     render(<LoginFormFallback />);
-
-    // Should render fallback spinner
-    expect(document.querySelector('.animate-spin')).toBeTruthy();
+    expect(screen.getByTestId('loading-spinner')).toBeTruthy();
   });
 
   it('should show success message when registered=true', async () => {
-    // Override search params mock
     mockUseSearchParams.mockReturnValue(new URLSearchParams('registered=true'));
 
     const { default: LoginPage } = await import('../../app/login/page');
@@ -204,7 +196,6 @@ describe('Login Page', () => {
   });
 
   it('should not show success message when registered is not set', async () => {
-    // Search params already default to empty in beforeEach
     const { default: LoginPage } = await import('../../app/login/page');
     const { container } = render(<LoginPage />);
 

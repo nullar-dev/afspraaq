@@ -2,14 +2,11 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function proxy(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  });
+  let supabaseResponse = NextResponse.next({ request });
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // Return early if env vars are missing - allow request to proceed without auth
   if (
     !supabaseUrl ||
     !supabaseKey ||
@@ -17,7 +14,7 @@ export async function proxy(request: NextRequest) {
     supabaseKey === 'placeholder-key'
   ) {
     const { pathname } = request.nextUrl;
-    const publicRoutes = ['/login', '/register', '/', '/prototype'];
+    const publicRoutes = ['/login', '/register', '/'];
     if (!publicRoutes.includes(pathname)) {
       const url = new URL('/login', request.url);
       return NextResponse.redirect(url);
@@ -32,15 +29,12 @@ export async function proxy(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        supabaseResponse = NextResponse.next({
-          request,
-        });
+        supabaseResponse = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value }) => supabaseResponse.cookies.set(name, value));
       },
     },
   });
 
-  // Refresh session if expired - with error handling
   let user = null;
   try {
     const {
@@ -48,28 +42,22 @@ export async function proxy(request: NextRequest) {
     } = await supabase.auth.getUser();
     user = supabaseUser;
   } catch {
-    // Auth error - treat as not logged in
     user = null;
   }
 
   const { pathname } = request.nextUrl;
-
-  // Validate redirect parameter to prevent open redirect
   const redirectParam = request.nextUrl.searchParams.get('redirect');
   const safeRedirect = redirectParam && redirectParam.startsWith('/') ? redirectParam : '/';
 
-  // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/register', '/', '/prototype'];
+  const publicRoutes = ['/login', '/register', '/'];
   const isPublicRoute = publicRoutes.includes(pathname);
 
-  // If user is not logged in and trying to access protected route
   if (!user && !isPublicRoute) {
     const url = new URL('/login', request.url);
     url.searchParams.set('redirect', safeRedirect);
     return NextResponse.redirect(url);
   }
 
-  // If user is logged in and trying to access auth pages, redirect to home
   if (user && ['/login', '/register'].includes(pathname)) {
     return NextResponse.redirect(new URL('/', request.url));
   }
@@ -79,13 +67,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - .css/.js files (static assets)
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|css|js)$).*)',
   ],
 };

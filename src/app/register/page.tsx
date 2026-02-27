@@ -3,12 +3,46 @@
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { User, Mail, Lock, ArrowRight } from 'lucide-react';
+import { Mail, Lock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { getSupabaseClient } from '@/utils/supabase/client';
-import { inputClasses } from '@/lib/styles';
+
+const pageStyle: React.CSSProperties = {
+  minHeight: '100vh',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: '#0A0A0A',
+  padding: '40px 20px',
+};
+
+const cardStyle: React.CSSProperties = {
+  width: '100%',
+  maxWidth: '420px',
+  backgroundColor: '#141414',
+  borderRadius: '16px',
+  border: '1px solid #2A2A2A',
+  padding: '32px',
+};
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '20px 16px',
+  borderRadius: '12px',
+  border: '2px solid #2A2A2A',
+  backgroundColor: '#1E1E1E',
+  color: '#FFFFFF',
+  fontSize: '16px',
+  boxSizing: 'border-box',
+};
+
+const inputFocusedStyle: React.CSSProperties = {
+  ...inputStyle,
+  borderColor: '#D4A853',
+  boxShadow: '0 0 0 2px rgba(212, 168, 83, 0.2)',
+};
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -43,14 +77,9 @@ export default function RegisterPage() {
       return;
     }
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
-      // Custom error messages - don't expose raw Supabase errors
-      // Use generic message to prevent user enumeration
       const errorMsg = error.message.toLowerCase();
       if (errorMsg.includes('password')) {
         setError('Password does not meet requirements.');
@@ -61,154 +90,150 @@ export default function RegisterPage() {
       }
       setLoading(false);
     } else {
-      // Check if email confirmation is required
       router.push('/login?registered=true');
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-8 animate-fade-in">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gold to-gold-light flex items-center justify-center mx-auto mb-4 animate-pulse-gold">
-            <User className="w-8 h-8 text-[#0A0A0A]" />
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">Create Account</h1>
-          <p className="text-[#B0B0B0] text-base">Sign up to get started</p>
+    <div style={pageStyle}>
+      <div style={cardStyle}>
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <h1 style={{ color: '#FFFFFF', fontSize: '28px', marginBottom: '8px' }}>
+            Create Account
+          </h1>
+          <p style={{ color: '#B0B0B0', fontSize: '14px' }}>Sign up to get started</p>
         </div>
 
-        {/* Register Form */}
-        <div className="bg-gradient-to-br from-[#141414] to-[#0F0F0F] rounded-2xl border border-[#2A2A2A] p-5 sm:p-8 animate-fade-in-up">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Email */}
-            <div className="space-y-2">
-              <Label
-                htmlFor="email"
-                className={`text-sm font-medium flex items-center gap-2 transition-colors ${
-                  focusedField === 'email' ? 'text-gold' : 'text-[#B0B0B0]'
-                }`}
-              >
-                <Mail className="w-4 h-4" />
-                Email Address
-              </Label>
-              <div className="relative">
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="john@example.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  onFocus={() => setFocusedField('email')}
-                  onBlur={() => setFocusedField(null)}
-                  className={inputClasses(focusedField, 'email')}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div className="space-y-2">
-              <Label
-                htmlFor="password"
-                className={`text-sm font-medium flex items-center gap-2 transition-colors ${
-                  focusedField === 'password' ? 'text-gold' : 'text-[#B0B0B0]'
-                }`}
-              >
-                <Lock className="w-4 h-4" />
-                Password
-              </Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="At least 8 characters"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  onFocus={() => setFocusedField('password')}
-                  onBlur={() => setFocusedField(null)}
-                  className={inputClasses(focusedField, 'password')}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Confirm Password */}
-            <div className="space-y-2">
-              <Label
-                htmlFor="confirmPassword"
-                className={`text-sm font-medium flex items-center gap-2 transition-colors ${
-                  focusedField === 'confirmPassword' ? 'text-gold' : 'text-[#B0B0B0]'
-                }`}
-              >
-                <Lock className="w-4 h-4" />
-                Confirm Password
-              </Label>
-              <div className="relative">
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="Repeat your password"
-                  value={confirmPassword}
-                  onChange={e => setConfirmPassword(e.target.value)}
-                  onFocus={() => setFocusedField('confirmPassword')}
-                  onBlur={() => setFocusedField(null)}
-                  className={inputClasses(focusedField, 'confirmPassword')}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Error */}
-            {error && (
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
-                {error}
-              </div>
-            )}
-
-            {/* Submit */}
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full h-12 text-base font-semibold bg-gold hover:bg-gold-light text-[#0A0A0A] transition-all duration-300 rounded-xl"
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '20px' }}>
+            <Label
+              htmlFor="email"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                color: focusedField === 'email' ? '#D4A853' : '#B0B0B0',
+                fontSize: '14px',
+                marginBottom: '8px',
+              }}
             >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-[#0A0A0A]/30 border-t-[#0A0A0A] rounded-full animate-spin" />
-                  Creating account...
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  Create Account
-                  <ArrowRight className="w-5 h-5" />
-                </span>
-              )}
-            </Button>
-          </form>
-
-          {/* Divider */}
-          <div className="relative my-6">
-            <div className="h-px bg-gradient-to-r from-transparent via-[#2A2A2A] to-transparent" />
+              <Mail size={16} /> Email Address
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="john@example.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              onFocus={() => setFocusedField('email')}
+              onBlur={() => setFocusedField(null)}
+              style={focusedField === 'email' ? inputFocusedStyle : inputStyle}
+              required
+            />
           </div>
 
-          {/* Login Link */}
-          <p className="text-center text-[#B0B0B0] text-sm">
-            Already have an account?{' '}
-            <Link
-              href="/login"
-              className="text-gold hover:text-gold-light font-medium transition-colors"
+          <div style={{ marginBottom: '20px' }}>
+            <Label
+              htmlFor="password"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                color: focusedField === 'password' ? '#D4A853' : '#B0B0B0',
+                fontSize: '14px',
+                marginBottom: '8px',
+              }}
             >
+              <Lock size={16} /> Password
+            </Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="At least 8 characters"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              onFocus={() => setFocusedField('password')}
+              onBlur={() => setFocusedField(null)}
+              style={focusedField === 'password' ? inputFocusedStyle : inputStyle}
+              required
+            />
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <Label
+              htmlFor="confirmPassword"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                color: focusedField === 'confirmPassword' ? '#D4A853' : '#B0B0B0',
+                fontSize: '14px',
+                marginBottom: '8px',
+              }}
+            >
+              <Lock size={16} /> Confirm Password
+            </Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              placeholder="Repeat your password"
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              onFocus={() => setFocusedField('confirmPassword')}
+              onBlur={() => setFocusedField(null)}
+              style={focusedField === 'confirmPassword' ? inputFocusedStyle : inputStyle}
+              required
+            />
+          </div>
+
+          {error && (
+            <div
+              style={{
+                padding: '12px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                color: '#EF4444',
+                fontSize: '14px',
+                marginBottom: '16px',
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <Button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '16px',
+              backgroundColor: '#D4A853',
+              color: '#0A0A0A',
+              border: 'none',
+              borderRadius: '12px',
+              fontSize: '16px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            {loading ? 'Creating account...' : 'Create Account'}
+          </Button>
+        </form>
+
+        <div style={{ marginTop: '24px', textAlign: 'center' }}>
+          <p style={{ color: '#B0B0B0', fontSize: '14px', marginBottom: '8px' }}>
+            Already have an account?{' '}
+            <Link href="/login" style={{ color: '#D4A853' }}>
               Sign in
             </Link>
           </p>
+          <p>
+            <Link href="/" style={{ color: '#6B6B6B', fontSize: '14px' }}>
+              ← Back to home
+            </Link>
+          </p>
         </div>
-
-        {/* Back to Home */}
-        <p className="text-center mt-6">
-          <Link href="/" className="text-[#6B6B6B] hover:text-gold text-sm transition-colors">
-            ← Back to home
-          </Link>
-        </p>
       </div>
     </div>
   );

@@ -2,6 +2,11 @@
   "name": "afspraaq",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@10.30.2",
+  "engines": {
+    "node": "24.x",
+    "pnpm": "10.x"
+  },
   "scripts": {
     "build": "next build",
     "start": "next start",
@@ -17,7 +22,10 @@
     "test:component": "vitest run",
     "test:api": "vitest run",
     "test:e2e": "playwright test",
-    "sentry": "sentry"
+    "sentry": "sentry",
+    "supabase:types:check": "test -f src/types/supabase.generated.ts",
+    "dev:db:reset": "bash scripts/local-dev-reset.sh",
+    "dev:db:seed": "bash scripts/local-dev-seed.sh"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -33,7 +41,8 @@
     "next": "^16.1.6",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "tailwind-merge": "^3.5.0"
+    "tailwind-merge": "^3.5.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.4",
@@ -58,6 +67,7 @@
     "tailwindcss": "3.4.17",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1",
     "vitest": "^4.0.18"
   },
   "lint-staged": {

@@ -10,7 +10,7 @@ vi.mock('@/utils/supabase/client', () => ({
 }));
 
 function AuthHarness() {
-  const { state, login, register, logout, loginWithOAuth } = useAuth();
+  const { state, login, register, logout, loginWithOAuth, extendSession } = useAuth();
   const [message, setMessage] = React.useState('');
 
   return (
@@ -18,6 +18,8 @@ function AuthHarness() {
       <div data-testid="auth-state">{state.isAuthenticated ? 'yes' : 'no'}</div>
       <div data-testid="loading">{state.isLoading ? 'loading' : 'idle'}</div>
       <div data-testid="email">{state.user?.email ?? 'none'}</div>
+      <div data-testid="warning">{state.showSessionExpiryWarning ? 'yes' : 'no'}</div>
+      <div data-testid="remaining">{state.sessionSecondsRemaining ?? 'none'}</div>
       <button onClick={() => login('test@example.com', 'Password123!')}>login</button>
       <button
         onClick={async () => {
@@ -70,6 +72,19 @@ function AuthHarness() {
         }}
       >
         oauth
+      </button>
+      <button onClick={() => extendSession()}>extend-session</button>
+      <button
+        onClick={async () => {
+          try {
+            await extendSession();
+            setMessage('extended');
+          } catch {
+            setMessage('extend-error');
+          }
+        }}
+      >
+        extend-fail
       </button>
       <div data-testid="message">{message}</div>
     </div>
@@ -124,13 +139,18 @@ describe('AuthContext', () => {
 
     const mockSignUp = vi.fn().mockResolvedValue({ data: { session: null }, error: null });
     const mockSignOut = vi.fn().mockResolvedValue({ error: null });
+    const mockRefreshSession = vi
+      .fn()
+      .mockResolvedValue({ data: { session: { expires_at: null } } });
 
     mockGetSupabaseClient.mockReturnValue({
       auth: {
+        getSession: vi.fn().mockResolvedValue({ data: { session: { expires_at: null } } }),
         getUser: mockGetUser,
         signInWithPassword: mockSignInWithPassword,
         signUp: mockSignUp,
         signOut: mockSignOut,
+        refreshSession: mockRefreshSession,
         onAuthStateChange: (cb: typeof authCallback) => {
           authCallback = cb;
           return { data: { subscription: { unsubscribe: vi.fn() } } };
@@ -191,12 +211,18 @@ describe('AuthContext', () => {
     await waitFor(() => {
       expect(screen.getByTestId('auth-state').textContent).toBe('yes');
     });
+
+    fireEvent.click(screen.getByText('extend-session'));
+    await waitFor(() => {
+      expect(mockRefreshSession).toHaveBeenCalled();
+    });
   });
 
   it('maps Supabase error branches for login and register', async () => {
     mockGetSupabaseClient.mockReturnValue({
       auth: {
         getUser: vi.fn().mockRejectedValue(new Error('boom')),
+        getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
         signInWithPassword: vi
           .fn()
           .mockResolvedValueOnce({ error: { message: 'Too many requests' } })
@@ -209,6 +235,7 @@ describe('AuthContext', () => {
           .mockResolvedValueOnce({ data: null, error: { message: 'Invalid email format' } })
           .mockResolvedValueOnce({ data: null, error: { message: 'other' } }),
         signOut: vi.fn().mockResolvedValue({ error: null }),
+        refreshSession: vi.fn().mockResolvedValue({ data: { session: null } }),
         onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
       },
     });
@@ -249,5 +276,98 @@ describe('AuthContext', () => {
     await waitFor(() =>
       expect(screen.getByTestId('message').textContent).toContain('Unable to create account')
     );
+  });
+
+  it('falls back when getSession is unavailable and handles extend session failure', async () => {
+    const mockRefreshSession = vi.fn().mockResolvedValueOnce({ error: { message: 'boom' } });
+
+    mockGetSupabaseClient.mockReturnValue({
+      auth: {
+        // Intentionally omit getSession to cover fallback branch.
+        getUser: vi.fn().mockResolvedValue({
+          data: {
+            user: { id: 'u1', email: 'fallback@example.com', user_metadata: { first_name: 'F' } },
+          },
+        }),
+        signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
+        signUp: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+        signOut: vi.fn().mockResolvedValue({ error: null }),
+        refreshSession: mockRefreshSession,
+        onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
+      },
+    });
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-state').textContent).toBe('yes');
+      expect(screen.getByTestId('email').textContent).toBe('fallback@example.com');
+    });
+
+    fireEvent.click(screen.getByText('extend-fail'));
+    await waitFor(() => {
+      expect(screen.getByTestId('message').textContent).toBe('extend-error');
+      expect(mockRefreshSession).toHaveBeenCalled();
+    });
+  });
+
+  it('shows session warning for near-expiry callback and clears auth state on SIGNED_OUT', async () => {
+    let authCallback:
+      | ((
+          event: string,
+          session: { user: { id: string; email: string }; expires_at?: number } | null
+        ) => void)
+      | undefined;
+
+    mockGetSupabaseClient.mockReturnValue({
+      auth: {
+        getSession: vi.fn().mockResolvedValue({ data: { session: { expires_at: null } } }),
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'u3', email: 'timer@example.com', user_metadata: {} } },
+        }),
+        signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
+        signUp: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+        signOut: vi.fn().mockResolvedValue({ error: null }),
+        refreshSession: vi.fn().mockResolvedValue({ data: { session: { expires_at: null } } }),
+        onAuthStateChange: vi.fn((cb: typeof authCallback) => {
+          authCallback = cb;
+          return { data: { subscription: { unsubscribe: vi.fn() } } };
+        }),
+      },
+    });
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-state').textContent).toBe('yes');
+    });
+
+    act(() => {
+      authCallback?.('SIGNED_IN', {
+        user: { id: 'u3', email: 'timer@example.com' },
+        expires_at: Math.floor((Date.now() + 4 * 60 * 1000) / 1000),
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('warning').textContent).toBe('yes');
+    });
+
+    act(() => {
+      authCallback?.('SIGNED_OUT', null);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-state').textContent).toBe('no');
+      expect(screen.getByTestId('warning').textContent).toBe('no');
+    });
   });
 });

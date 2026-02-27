@@ -7,6 +7,8 @@ import { useBooking } from '@/context/BookingContext';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { fetchWithTimeout } from '@/lib/http';
+import { decodeBookingConfirmationResponse } from '@/lib/decoders';
 import {
   Dialog,
   DialogContent,
@@ -78,23 +80,18 @@ const Payment: React.FC = () => {
   };
 
   const requestConfirmationCode = async () => {
-    const response = await fetch('/api/bookings/confirmation', {
+    const response = await fetchWithTimeout('/api/bookings/confirmation', {
       method: 'POST',
       cache: 'no-store',
+      credentials: 'include',
     });
 
     if (!response.ok) {
       throw new Error('Unable to create confirmation code');
     }
 
-    const body = (await response.json()) as { code?: string };
-    const code = body.code ?? '';
-
-    if (!/^GC-[A-Z0-9]{9}$/.test(code)) {
-      throw new Error('Invalid confirmation code');
-    }
-
-    return code;
+    const body = await response.json();
+    return decodeBookingConfirmationResponse(body).code;
   };
 
   const handleSubmit = () => {
@@ -148,13 +145,18 @@ const Payment: React.FC = () => {
     const [monthText, yearText] = expiryDate.split('/');
     const month = Number(monthText);
     const year = Number(yearText);
+    const now = new Date();
+    const currentYear = now.getFullYear() % 100;
+    const currentMonth = now.getMonth() + 1;
     const isValidMonth = Number.isInteger(month) && month >= 1 && month <= 12;
     const isValidYear = Number.isInteger(year) && yearText?.length === 2;
+    const isExpired = year < currentYear || (year === currentYear && month < currentMonth);
     return (
       cardDigits.length === 16 &&
       expiryDate.length === 5 &&
       isValidMonth &&
       isValidYear &&
+      !isExpired &&
       (cvv.length === 3 || cvv.length === 4) &&
       cardholderName.trim().length > 0
     );
@@ -224,7 +226,7 @@ const Payment: React.FC = () => {
   };
 
   const subtotalCents = getTotalCents();
-  const taxCents = Math.round(subtotalCents * 0.08);
+  const taxCents = Math.round((subtotalCents * 8) / 100);
   const totalCents = subtotalCents + taxCents;
 
   const handleBookAnother = () => {
@@ -291,6 +293,8 @@ const Payment: React.FC = () => {
                     onFocus={() => setFocusedField('cardNumber')}
                     onBlur={() => setFocusedField(null)}
                     className={`${inputClasses('cardNumber')} pl-14 font-mono tracking-wider`}
+                    inputMode="numeric"
+                    autoComplete="cc-number"
                   />
                   <div className="absolute left-5 top-1/2 -translate-y-1/2">
                     {cardType === 'visa' ? (
@@ -337,6 +341,8 @@ const Payment: React.FC = () => {
                     onFocus={() => setFocusedField('expiryDate')}
                     onBlur={() => setFocusedField(null)}
                     className={`${inputClasses('expiryDate')} font-mono text-center`}
+                    inputMode="numeric"
+                    autoComplete="cc-exp"
                   />
                 </div>
                 <div className="space-y-2">
@@ -359,6 +365,8 @@ const Payment: React.FC = () => {
                     onBlur={() => setFocusedField(null)}
                     className={`${inputClasses('cvv')} font-mono text-center tracking-[0.3em]`}
                     maxLength={4}
+                    inputMode="numeric"
+                    autoComplete="cc-csc"
                   />
                 </div>
               </div>
@@ -382,6 +390,7 @@ const Payment: React.FC = () => {
                   onFocus={() => setFocusedField('cardholderName')}
                   onBlur={() => setFocusedField(null)}
                   className={inputClasses('cardholderName')}
+                  autoComplete="cc-name"
                 />
               </div>
             </form>

@@ -13,7 +13,7 @@ import {
 
 const Header: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { state: authState, logout } = useAuth();
+  const { state: authState, logout, extendSession } = useAuth();
   const router = useRouter();
 
   const navItems = [{ label: 'Support' }, { label: 'Dashboard' }, { label: 'Fleet Management' }];
@@ -24,9 +24,29 @@ const Header: React.FC = () => {
     router.refresh();
   };
 
+  const formatSessionTime = (seconds: number | null) => {
+    if (!seconds) return 'less than a minute';
+    const minutes = Math.max(1, Math.ceil(seconds / 60));
+    return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+  };
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 h-[72px] bg-[#0A0A0A]/90 backdrop-blur-xl border-b border-[#2A2A2A]">
-      <div className="h-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 flex items-center justify-between">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-[#0A0A0A]/90 backdrop-blur-xl border-b border-[#2A2A2A]">
+      {authState.showSessionExpiryWarning && (
+        <div className="bg-amber-500/15 border-b border-amber-400/30 px-4 py-2 text-xs sm:text-sm flex flex-wrap items-center justify-between gap-3">
+          <p className="text-amber-100">
+            Session expires in {formatSessionTime(authState.sessionSecondsRemaining)}.
+          </p>
+          <button
+            type="button"
+            onClick={() => void extendSession()}
+            className="text-amber-200 hover:text-white font-medium"
+          >
+            Extend session
+          </button>
+        </div>
+      )}
+      <div className="h-[72px] max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-gold to-gold-light flex items-center justify-center shadow-gold">

@@ -54,7 +54,7 @@ describe('Booking Pages', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ code: 'GC-ABC123DEF' }),
+        json: async () => ({ code: 'GC-0123456789ABCDEF0123456789ABCDEF' }),
       })
     );
   });
@@ -118,6 +118,29 @@ describe('Booking Pages', () => {
     expect(screen.getByText(/your information is secure/i)).toBeTruthy();
   });
 
+  it('sanitizes customer details input lengths and characters', () => {
+    renderWithBooking(<CustomerPage />);
+
+    fireEvent.change(screen.getByLabelText(/phone number/i), {
+      target: { value: 'abc12345<script>alert(1)</script>' },
+    });
+    expect((screen.getByLabelText(/phone number/i) as HTMLInputElement).value).toBe('12345(1)');
+
+    fireEvent.change(screen.getByLabelText(/zip code/i), {
+      target: { value: '10A0!1-12345' },
+    });
+    expect((screen.getByLabelText(/zip code/i) as HTMLInputElement).value).toBe('1001-12345');
+
+    const longSpecialRequest = 'x'.repeat(700);
+    fireEvent.change(screen.getByPlaceholderText(/any specific concerns/i), {
+      target: { value: longSpecialRequest },
+    });
+    expect(
+      (screen.getByPlaceholderText(/any specific concerns/i) as HTMLTextAreaElement).value
+    ).toHaveLength(500);
+    expect(screen.getByText('500/500')).toBeTruthy();
+  });
+
   it('renders payment page and completes mock booking flow', async () => {
     vi.useFakeTimers();
     renderWithBooking(<SeededPaymentPage />);
@@ -150,5 +173,42 @@ describe('Booking Pages', () => {
     expect(screen.getByText(/confirmation number/i)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /book another vehicle/i }));
     expect(mockPush).toHaveBeenCalledWith('/booking/vehicle');
+  });
+
+  it('prevents submit for expired card and falls back to GC-PENDING on API failure', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network fail')));
+    renderWithBooking(<SeededPaymentPage />);
+
+    fireEvent.click(screen.getByText('seed-vehicle'));
+    fireEvent.click(screen.getByText('seed-package'));
+    fireEvent.click(screen.getByText('seed-date'));
+    fireEvent.click(screen.getByText('seed-time'));
+
+    fireEvent.change(screen.getByLabelText(/card number/i), {
+      target: { value: '4111111111111111' },
+    });
+    fireEvent.change(screen.getByLabelText(/expiry date/i), { target: { value: '0120' } });
+    fireEvent.change(screen.getByLabelText(/cvv/i), { target: { value: '123' } });
+    fireEvent.change(screen.getByLabelText(/cardholder name/i), { target: { value: 'jane doe' } });
+
+    const invalidButton = screen
+      .getAllByRole('button', { name: /complete booking/i })
+      .find(button => !button.hasAttribute('disabled'));
+    expect(invalidButton).toBeUndefined();
+
+    fireEvent.change(screen.getByLabelText(/expiry date/i), { target: { value: '1229' } });
+    const activeButton = screen
+      .getAllByRole('button', { name: /complete booking/i })
+      .find(button => !button.hasAttribute('disabled'));
+    expect(activeButton).toBeDefined();
+    fireEvent.click(activeButton!);
+
+    await act(async () => {
+      vi.advanceTimersByTime(2500);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText('GC-PENDING')).toBeTruthy();
   });
 });

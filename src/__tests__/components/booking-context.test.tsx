@@ -22,10 +22,12 @@ function BookingHarness() {
       <button onClick={() => dispatch({ type: 'TOGGLE_ADDON', payload: 'wheel-coating' })}>
         addon
       </button>
+      <button onClick={() => dispatch({ type: 'TOGGLE_ADDON', payload: '' })}>addon-invalid</button>
       <button onClick={() => dispatch({ type: 'SET_DATE', payload: new Date(2026, 2, 10) })}>
         date
       </button>
       <button onClick={() => dispatch({ type: 'SET_TIME', payload: '10:00 AM' })}>time</button>
+      <button onClick={() => goToStep('not-a-step' as never)}>go-invalid</button>
       <button
         onClick={() =>
           dispatch({
@@ -68,6 +70,7 @@ describe('BookingContext', () => {
     fireEvent.click(screen.getByText('vehicle'));
     fireEvent.click(screen.getByText('package'));
     fireEvent.click(screen.getByText('addon'));
+    fireEvent.click(screen.getByText('addon-invalid'));
     fireEvent.click(screen.getByText('addon'));
     fireEvent.click(screen.getByText('time'));
     fireEvent.click(screen.getByText('date'));
@@ -80,6 +83,13 @@ describe('BookingContext', () => {
     fireEvent.click(screen.getByText('reset'));
     expect(screen.getByTestId('step').textContent).toBe('vehicle');
     expect(screen.getByTestId('vehicle').textContent).toBe('none');
+
+    fireEvent.click(screen.getByText('go-invalid'));
+    expect(screen.getByTestId('step').textContent).toBe('not-a-step');
+    fireEvent.click(screen.getByText('next'));
+    expect(screen.getByTestId('step').textContent).toBe('not-a-step');
+    fireEvent.click(screen.getByText('prev'));
+    expect(screen.getByTestId('step').textContent).toBe('not-a-step');
   });
 
   it('throws if useBooking is used without provider', () => {

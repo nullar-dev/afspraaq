@@ -1,6 +1,7 @@
 'use client';
 
 import React, {
+  useCallback,
   createContext,
   useContext,
   useEffect,
@@ -10,6 +11,7 @@ import React, {
 } from 'react';
 import type { AuthChangeEvent, Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/utils/supabase/client';
+import { mapAuthError } from '@/lib/auth-errors';
 
 interface User {
   id: string;
@@ -23,6 +25,8 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  showSessionExpiryWarning: boolean;
+  sessionSecondsRemaining: number | null;
 }
 
 interface RegisterData {
@@ -42,12 +46,15 @@ interface AuthContextType {
   loginWithOAuth: (_provider: 'google' | 'microsoft' | 'apple') => Promise<void>;
   register: (data: RegisterData) => Promise<RegisterResult>;
   logout: () => Promise<void>;
+  extendSession: () => Promise<void>;
 }
 
 const initialState: AuthState = {
   user: null,
   isAuthenticated: false,
   isLoading: true,
+  showSessionExpiryWarning: false,
+  sessionSecondsRemaining: null,
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -70,10 +77,93 @@ function toAuthUser(user: SupabaseUser | null): User | null {
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const supabase = useMemo(() => getSupabaseClient(), []);
+  const sessionExpiryTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionWarningTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionCountdownIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
   const [state, setState] = useState<AuthState>({
     ...initialState,
     isLoading: !!supabase,
   });
+
+  const clearSessionTimers = useCallback(() => {
+    if (sessionExpiryTimeoutRef.current) clearTimeout(sessionExpiryTimeoutRef.current);
+    if (sessionWarningTimeoutRef.current) clearTimeout(sessionWarningTimeoutRef.current);
+    if (sessionCountdownIntervalRef.current) clearInterval(sessionCountdownIntervalRef.current);
+    sessionExpiryTimeoutRef.current = null;
+    sessionWarningTimeoutRef.current = null;
+    sessionCountdownIntervalRef.current = null;
+  }, []);
+
+  const scheduleSessionWarnings = useCallback(
+    (expiresAt: number | null | undefined) => {
+      clearSessionTimers();
+      if (!expiresAt) return;
+
+      const expiresAtMs = expiresAt * 1000;
+      const warningLeadMs = 5 * 60 * 1000;
+      const now = Date.now();
+      const warningAt = expiresAtMs - warningLeadMs;
+
+      if (expiresAtMs <= now) {
+        setState(prev => ({
+          ...prev,
+          showSessionExpiryWarning: false,
+          sessionSecondsRemaining: null,
+        }));
+        return;
+      }
+
+      const startWarning = () => {
+        const updateRemaining = () => {
+          const remainingSeconds = Math.max(0, Math.ceil((expiresAtMs - Date.now()) / 1000));
+          setState(prev => ({
+            ...prev,
+            showSessionExpiryWarning: true,
+            sessionSecondsRemaining: remainingSeconds,
+          }));
+        };
+        updateRemaining();
+        sessionCountdownIntervalRef.current = setInterval(updateRemaining, 1000);
+      };
+
+      if (warningAt <= now) {
+        startWarning();
+      } else {
+        sessionWarningTimeoutRef.current = setTimeout(startWarning, warningAt - now);
+      }
+
+      sessionExpiryTimeoutRef.current = setTimeout(() => {
+        setState(prev => ({
+          ...prev,
+          showSessionExpiryWarning: false,
+          sessionSecondsRemaining: null,
+        }));
+      }, expiresAtMs - now);
+    },
+    [clearSessionTimers]
+  );
+
+  const ensureProfileRow = useCallback(async () => {
+    try {
+      await fetch('/api/auth/profile/ensure', {
+        method: 'POST',
+        credentials: 'include',
+        cache: 'no-store',
+      });
+    } catch {
+      // Profile repair is best-effort and must not block auth UX.
+    }
+  }, []);
+
+  useEffect(() => {
+    const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+      console.error('Unhandled promise rejection', event.reason);
+    };
+    window.addEventListener('unhandledrejection', onUnhandledRejection);
+    return () => {
+      window.removeEventListener('unhandledrejection', onUnhandledRejection);
+    };
+  }, []);
 
   useEffect(() => {
     if (!supabase) {
@@ -82,8 +172,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     let mounted = true;
 
-    const loadUser = async () => {
+    const syncUser = async () => {
       try {
+        let session: Session | null = null;
+        if ('getSession' in supabase.auth && typeof supabase.auth.getSession === 'function') {
+          const sessionResult = await supabase.auth.getSession();
+          session = sessionResult.data.session;
+        }
         const {
           data: { user },
         } = await supabase.auth.getUser();
@@ -95,14 +190,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           user: authUser,
           isAuthenticated: !!authUser,
           isLoading: false,
+          showSessionExpiryWarning: false,
+          sessionSecondsRemaining: null,
         });
+        scheduleSessionWarnings(session?.expires_at);
+        if (authUser) {
+          void ensureProfileRow();
+        }
       } catch {
         if (!mounted) return;
         setState({ ...initialState, isLoading: false });
+        clearSessionTimers();
       }
     };
 
-    loadUser();
+    void syncUser();
 
     const {
       data: { subscription },
@@ -113,14 +215,39 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         user: authUser,
         isAuthenticated: !!authUser,
         isLoading: false,
+        showSessionExpiryWarning: false,
+        sessionSecondsRemaining: null,
       });
+      scheduleSessionWarnings(session?.expires_at);
+      if (authUser) {
+        void ensureProfileRow();
+      } else {
+        clearSessionTimers();
+      }
     });
+
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      void syncUser();
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void syncUser();
+      }
+    };
+
+    window.addEventListener('pageshow', onPageShow);
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
       mounted = false;
+      clearSessionTimers();
       subscription.unsubscribe();
+      window.removeEventListener('pageshow', onPageShow);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [supabase]);
+  }, [supabase, scheduleSessionWarnings, ensureProfileRow, clearSessionTimers]);
 
   const login = async (email: string, password: string) => {
     if (!supabase) throw new Error('Authentication is unavailable.');
@@ -131,21 +258,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     if (error) {
       setState(prev => ({ ...prev, isLoading: false }));
-      const message = error.message.toLowerCase();
-      if (
-        message.includes('invalid login credentials') ||
-        message.includes('invalid credentials')
-      ) {
-        throw new Error('Invalid email or password. Please try again.');
-      }
-      if (message.includes('too many requests')) {
-        throw new Error('Too many attempts. Please wait a moment and try again.');
-      }
-      throw new Error('Unable to sign in. Please try again.');
+      throw new Error(mapAuthError(error.message, 'login'));
     }
   };
 
-  const loginWithOAuth = async (_provider: 'google' | 'microsoft' | 'apple') => {
+  const loginWithOAuth = async (provider: 'google' | 'microsoft' | 'apple') => {
+    void provider;
     throw new Error('OAuth sign-in is coming soon.');
   };
 
@@ -167,14 +285,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     if (error) {
       setState(prev => ({ ...prev, isLoading: false }));
-      const message = error.message.toLowerCase();
-      if (message.includes('too many requests')) {
-        throw new Error('Too many attempts. Please wait a moment and try again.');
-      }
-      if (message.includes('password')) {
-        throw new Error('Password does not meet requirements.');
-      }
-      throw new Error('Unable to create account. Please try again later.');
+      throw new Error(mapAuthError(error.message, 'register'));
     }
 
     const requiresEmailVerification = !result.session;
@@ -185,12 +296,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     if (!supabase) return;
+    clearSessionTimers();
     await supabase.auth.signOut();
     setState({ ...initialState, isLoading: false });
   };
 
+  const extendSession = async () => {
+    if (!supabase) throw new Error('Session extension is unavailable.');
+    const { data, error } = await supabase.auth.refreshSession();
+    if (error) {
+      throw new Error('Unable to extend session right now.');
+    }
+    scheduleSessionWarnings(data.session?.expires_at);
+    setState(prev => ({
+      ...prev,
+      showSessionExpiryWarning: false,
+    }));
+  };
+
   return (
-    <AuthContext.Provider value={{ state, login, loginWithOAuth, register, logout }}>
+    <AuthContext.Provider value={{ state, login, loginWithOAuth, register, logout, extendSession }}>
       {children}
     </AuthContext.Provider>
   );

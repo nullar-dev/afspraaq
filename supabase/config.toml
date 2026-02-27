@@ -26,3 +26,11 @@ enabled = false
 
 [edge_runtime]
 enabled = false
+
+[auth]
+enabled = true
+
+[auth.rate_limit]
+email_sent = 5
+token_refresh = 10
+sign_in_sign_ups = 5

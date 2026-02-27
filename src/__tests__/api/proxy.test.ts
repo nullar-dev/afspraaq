@@ -32,6 +32,7 @@ describe('proxy middleware', () => {
     expect(response.status).toBe(307);
     expect(redirectUrl.pathname).toBe('/login');
     expect(redirectUrl.searchParams.get('redirect')).toBeNull();
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff');
   });
 
   it('allows public auth routes when Supabase env is unavailable', async () => {
@@ -41,6 +42,7 @@ describe('proxy middleware', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('location')).toBeNull();
+    expect(response.headers.get('x-frame-options')).toBe('DENY');
   });
 
   it('redirects authenticated users away from /login to /', async () => {

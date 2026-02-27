@@ -9,6 +9,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 
+const ALLOWED_REDIRECTS = new Set([
+  '/',
+  '/booking/vehicle',
+  '/booking/services',
+  '/booking/schedule',
+  '/booking/customer',
+  '/booking/payment',
+]);
+
 const Login: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -21,6 +30,9 @@ const Login: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<{ email: string | null; password: string | null }>(
+    { email: null, password: null }
+  );
 
   const successMessage = useMemo(
     () =>
@@ -44,8 +56,15 @@ const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      setError('Please enter both email and password.');
+    const nextFieldErrors: { email: string | null; password: string | null } = {
+      email: null,
+      password: null,
+    };
+    if (!email.trim()) nextFieldErrors.email = 'Email is required.';
+    if (!password) nextFieldErrors.password = 'Password is required.';
+    setFieldErrors(nextFieldErrors);
+    if (nextFieldErrors.email || nextFieldErrors.password) {
+      setError('Please correct the highlighted fields.');
       return;
     }
     if (isSubmitting || state.isLoading) return;
@@ -68,7 +87,8 @@ const Login: React.FC = () => {
         !redirectParam.startsWith('//') &&
         !redirectParam.includes('\\') &&
         !redirectParam.includes('\n') &&
-        !redirectParam.includes('\r')
+        !redirectParam.includes('\r') &&
+        ALLOWED_REDIRECTS.has(redirectParam)
           ? redirectParam
           : '/booking/vehicle';
       router.push(safeRedirect);
@@ -155,11 +175,17 @@ const Login: React.FC = () => {
                 placeholder="you@example.com"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
+                onInput={() => setFieldErrors(prev => ({ ...prev, email: null }))}
                 onFocus={() => setFocusedField('email')}
                 onBlur={() => setFocusedField(null)}
                 className={inputClasses('email')}
+                autoComplete="email"
+                inputMode="email"
                 required
               />
+              {fieldErrors.email && (
+                <p className="text-red-400 text-xs mt-2">{fieldErrors.email}</p>
+              )}
               <div className="absolute left-4 top-1/2 -translate-y-1/2">
                 <Mail className="w-5 h-5 text-[#6B6B6B]" />
               </div>
@@ -183,11 +209,16 @@ const Login: React.FC = () => {
                 placeholder="Enter your password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
+                onInput={() => setFieldErrors(prev => ({ ...prev, password: null }))}
                 onFocus={() => setFocusedField('password')}
                 onBlur={() => setFocusedField(null)}
                 className={`${inputClasses('password')} pr-12`}
+                autoComplete="current-password"
                 required
               />
+              {fieldErrors.password && (
+                <p className="text-red-400 text-xs mt-2">{fieldErrors.password}</p>
+              )}
               <div className="absolute left-4 top-1/2 -translate-y-1/2">
                 <Lock className="w-5 h-5 text-[#6B6B6B]" />
               </div>

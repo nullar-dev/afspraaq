@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useReducer, type ReactNode } from 'react';
 import type { BookingStep, CustomerDetails } from '@/types/booking';
+import { addOns } from '@/data/bookingData';
 
 interface BookingState {
   currentStep: BookingStep;
@@ -43,6 +44,8 @@ const initialState: BookingState = {
   },
 };
 
+const ALLOWED_ADDON_IDS = new Set(addOns.map(addOn => addOn.id));
+
 const isCustomerDetailsKey = (key: string): key is keyof CustomerDetails =>
   [
     'firstName',
@@ -62,7 +65,35 @@ const sanitizeCustomerDetailsPayload = (payload: Partial<CustomerDetails>) => {
   for (const [key, value] of Object.entries(payload)) {
     if (!isCustomerDetailsKey(key)) continue;
     if (typeof value !== 'string') continue;
-    nextPayload[key] = value;
+    switch (key) {
+      case 'firstName':
+      case 'lastName':
+        nextPayload[key] = value.slice(0, 60);
+        break;
+      case 'email':
+        nextPayload[key] = value.trim().toLowerCase().slice(0, 254);
+        break;
+      case 'phone':
+        nextPayload[key] = value.replace(/[^\d()+\-\s]/g, '').slice(0, 25);
+        break;
+      case 'address':
+        nextPayload[key] = value.slice(0, 120);
+        break;
+      case 'city':
+        nextPayload[key] = value.slice(0, 60);
+        break;
+      case 'state':
+        nextPayload[key] = value.slice(0, 30);
+        break;
+      case 'zipCode':
+        nextPayload[key] = value.replace(/[^\d-]/g, '').slice(0, 10);
+        break;
+      case 'specialRequests':
+        nextPayload[key] = value.slice(0, 500);
+        break;
+      default:
+        break;
+    }
   }
 
   return nextPayload;
@@ -78,6 +109,9 @@ const bookingReducer = (state: BookingState, action: BookingAction): BookingStat
       return { ...state, selectedPackage: action.payload };
     case 'TOGGLE_ADDON':
       if (typeof action.payload !== 'string' || action.payload.length === 0) {
+        return state;
+      }
+      if (!ALLOWED_ADDON_IDS.has(action.payload)) {
         return state;
       }
       return {
@@ -128,7 +162,9 @@ export const BookingProvider: React.FC<{ children: ReactNode }> = ({ children })
     const currentIndex = steps.indexOf(state.currentStep);
     if (currentIndex < 0) return;
     if (currentIndex < steps.length - 1) {
-      dispatch({ type: 'SET_STEP', payload: steps[currentIndex + 1] });
+      const step = steps[currentIndex + 1];
+      if (!step) return;
+      dispatch({ type: 'SET_STEP', payload: step });
     }
   };
 
@@ -136,7 +172,9 @@ export const BookingProvider: React.FC<{ children: ReactNode }> = ({ children })
     const currentIndex = steps.indexOf(state.currentStep);
     if (currentIndex < 0) return;
     if (currentIndex > 0) {
-      dispatch({ type: 'SET_STEP', payload: steps[currentIndex - 1] });
+      const step = steps[currentIndex - 1];
+      if (!step) return;
+      dispatch({ type: 'SET_STEP', payload: step });
     }
   };
 

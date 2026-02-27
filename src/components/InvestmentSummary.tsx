@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { useBooking } from '@/context/BookingContext';
 import { vehicles, servicePackages, addOns } from '@/data/bookingData';
 
+const MAX_PRICE_DOLLARS = 1_000_000;
+
 const isValidCustomerEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 const isValidCustomerPhone = (phone: string) => {
   const digits = phone.replace(/\D/g, '');
@@ -32,7 +34,12 @@ const InvestmentSummary: React.FC = () => {
     // Vehicle
     if (state.selectedVehicle) {
       const vehicle = vehicles.find(v => v.id === state.selectedVehicle);
-      if (vehicle && Number.isFinite(vehicle.price) && vehicle.price >= 0) {
+      if (
+        vehicle &&
+        Number.isFinite(vehicle.price) &&
+        vehicle.price >= 0 &&
+        vehicle.price <= MAX_PRICE_DOLLARS
+      ) {
         items.push({
           id: `vehicle-${vehicle.id}`,
           name: vehicle.name,
@@ -47,7 +54,7 @@ const InvestmentSummary: React.FC = () => {
     // Service Package
     if (state.selectedPackage) {
       const pkg = servicePackages.find(p => p.id === state.selectedPackage);
-      if (pkg) {
+      if (pkg && Number.isFinite(pkg.price) && pkg.price >= 0 && pkg.price <= MAX_PRICE_DOLLARS) {
         items.push({
           id: `package-${pkg.id}`,
           name: pkg.name,
@@ -61,7 +68,12 @@ const InvestmentSummary: React.FC = () => {
     // Add-ons
     state.selectedAddOns.forEach(addOnId => {
       const addOn = addOns.find(a => a.id === addOnId);
-      if (addOn) {
+      if (
+        addOn &&
+        Number.isFinite(addOn.price) &&
+        addOn.price >= 0 &&
+        addOn.price <= MAX_PRICE_DOLLARS
+      ) {
         items.push({
           id: `addon-${addOn.id}`,
           name: addOn.name,

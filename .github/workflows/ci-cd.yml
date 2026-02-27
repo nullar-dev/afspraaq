@@ -95,6 +95,32 @@ jobs:
       - name: Run TypeScript check
         run: pnpm run typecheck
 
+      - name: Verify Supabase generated types file exists
+        run: pnpm run supabase:types:check
+
+      - name: Enforce Supabase type updates when migrations change
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+          fi
+
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" == "0000000000000000000000000000000000000000" ]]; then
+            echo "No base SHA available; skipping migration/type drift check."
+            exit 0
+          fi
+
+          CHANGED_FILES="$(git diff --name-only "$BASE_SHA" "${{ github.sha }}")"
+          if echo "$CHANGED_FILES" | grep -q '^supabase/migrations/'; then
+            if ! echo "$CHANGED_FILES" | grep -q '^src/types/supabase.generated.ts$'; then
+              echo "Supabase migrations changed but src/types/supabase.generated.ts was not updated."
+              exit 1
+            fi
+          fi
+
   # ---------------------------------------------------------------------------
   # SECURITY JOB
   # ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const mockPush = vi.fn();
@@ -155,5 +155,43 @@ describe('Register Page', () => {
       expect(screen.getByText(/unable to create account/i)).toBeTruthy();
       expect(screen.queryByText(/user already registered/i)).toBeNull();
     });
+  });
+
+  it('surfaces friendly rate-limit and password policy register errors', async () => {
+    mockRegister
+      .mockRejectedValueOnce(new Error('Too many attempts'))
+      .mockRejectedValueOnce(new Error('Password does not meet requirements'));
+
+    const { default: RegisterPage } = await import('../../app/register/page');
+    const user = userEvent.setup();
+    render(<RegisterPage />);
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole('checkbox', { name: /i agree to the terms/i }));
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/too many attempts/i)).toBeTruthy();
+    });
+
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/password does not meet requirements/i)).toBeTruthy();
+    });
+  });
+
+  it('shows terms requirement when form is submitted without agreement', async () => {
+    const { default: RegisterPage } = await import('../../app/register/page');
+    const user = userEvent.setup();
+    const { container } = render(<RegisterPage />);
+    await fillValidForm(user);
+
+    const form = container.querySelector('form');
+    if (!form) throw new Error('expected register form');
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(screen.getByText(/please accept the terms to continue/i)).toBeTruthy();
+    });
+    expect(mockRegister).not.toHaveBeenCalled();
   });
 });

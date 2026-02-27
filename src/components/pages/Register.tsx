@@ -25,7 +25,11 @@ const Register: React.FC = () => {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof typeof formData, string>>>(
+    {}
+  );
 
   const toSafeRegisterError = (err: unknown) => {
     if (!(err instanceof Error)) {
@@ -44,8 +48,9 @@ const Register: React.FC = () => {
     return 'Unable to create account. Please try again later.';
   };
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: keyof typeof formData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    setFieldErrors(prev => ({ ...prev, [field]: '' }));
 
     if (field === 'password') {
       let strength = 0;
@@ -59,12 +64,25 @@ const Register: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting || state.isLoading) return;
     setError('');
+    const nextFieldErrors: Partial<Record<keyof typeof formData, string>> = {};
 
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
+    if (!formData.firstName.trim()) nextFieldErrors.firstName = 'First name is required.';
+    if (!formData.lastName.trim()) nextFieldErrors.lastName = 'Last name is required.';
+    if (!formData.email.trim()) nextFieldErrors.email = 'Email is required.';
+    if (!formData.password) nextFieldErrors.password = 'Password is required.';
+    if (!formData.confirmPassword)
+      nextFieldErrors.confirmPassword = 'Please confirm your password.';
+    if (formData.password && formData.password !== formData.confirmPassword) {
+      nextFieldErrors.confirmPassword = 'Passwords do not match.';
     }
+    if (formData.password && passwordStrength < 2) {
+      nextFieldErrors.password = 'Please choose a stronger password.';
+    }
+
+    setFieldErrors(nextFieldErrors);
+    if (Object.values(nextFieldErrors).some(Boolean)) return;
 
     if (!agreeToTerms) {
       setError('Please accept the terms to continue.');
@@ -72,6 +90,7 @@ const Register: React.FC = () => {
     }
 
     try {
+      setIsSubmitting(true);
       const result = await register({
         firstName: formData.firstName,
         lastName: formData.lastName,
@@ -88,6 +107,8 @@ const Register: React.FC = () => {
       router.refresh();
     } catch (err) {
       setError(toSafeRegisterError(err));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -168,6 +189,8 @@ const Register: React.FC = () => {
                   id="firstName"
                   type="text"
                   placeholder="John"
+                  maxLength={100}
+                  autoComplete="given-name"
                   value={formData.firstName}
                   onChange={e => handleInputChange('firstName', e.target.value)}
                   onFocus={() => setFocusedField('firstName')}
@@ -175,6 +198,9 @@ const Register: React.FC = () => {
                   className={`${inputClasses('firstName')} py-4 sm:py-5 pl-10 sm:pl-12`}
                   required
                 />
+                {fieldErrors.firstName && (
+                  <p className="text-red-400 text-xs">{fieldErrors.firstName}</p>
+                )}
               </div>
             </div>
             <div className="space-y-1.5 sm:space-y-2">
@@ -190,6 +216,8 @@ const Register: React.FC = () => {
                   id="lastName"
                   type="text"
                   placeholder="Doe"
+                  maxLength={100}
+                  autoComplete="family-name"
                   value={formData.lastName}
                   onChange={e => handleInputChange('lastName', e.target.value)}
                   onFocus={() => setFocusedField('lastName')}
@@ -197,6 +225,9 @@ const Register: React.FC = () => {
                   className={`${inputClasses('lastName')} py-4 sm:py-5 pl-10 sm:pl-12`}
                   required
                 />
+                {fieldErrors.lastName && (
+                  <p className="text-red-400 text-xs">{fieldErrors.lastName}</p>
+                )}
               </div>
             </div>
           </div>
@@ -213,6 +244,9 @@ const Register: React.FC = () => {
               id="email"
               type="email"
               placeholder="you@example.com"
+              maxLength={254}
+              autoComplete="email"
+              inputMode="email"
               value={formData.email}
               onChange={e => handleInputChange('email', e.target.value)}
               onFocus={() => setFocusedField('email')}
@@ -220,6 +254,7 @@ const Register: React.FC = () => {
               className={`${inputClasses('email')} py-4 sm:py-5`}
               required
             />
+            {fieldErrors.email && <p className="text-red-400 text-xs">{fieldErrors.email}</p>}
           </div>
 
           <div className="space-y-1.5 sm:space-y-2">
@@ -235,6 +270,8 @@ const Register: React.FC = () => {
                 id="password"
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Create a strong password"
+                maxLength={128}
+                autoComplete="new-password"
                 value={formData.password}
                 onChange={e => handleInputChange('password', e.target.value)}
                 onFocus={() => setFocusedField('password')}
@@ -250,6 +287,7 @@ const Register: React.FC = () => {
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
+            {fieldErrors.password && <p className="text-red-400 text-xs">{fieldErrors.password}</p>}
             <div className="h-1 bg-[#2A2A2A] rounded-full overflow-hidden">
               <div
                 className={`h-full transition-all duration-300 ${getPasswordStrengthColor()}`}
@@ -271,6 +309,8 @@ const Register: React.FC = () => {
                 id="confirmPassword"
                 type={showConfirmPassword ? 'text' : 'password'}
                 placeholder="Confirm your password"
+                maxLength={128}
+                autoComplete="new-password"
                 value={formData.confirmPassword}
                 onChange={e => handleInputChange('confirmPassword', e.target.value)}
                 onFocus={() => setFocusedField('confirmPassword')}
@@ -286,10 +326,14 @@ const Register: React.FC = () => {
                 {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
-            {formData.confirmPassword && (
-              <p className={`text-xs ${passwordsMatch ? 'text-green-400' : 'text-red-400'}`}>
-                {passwordsMatch ? 'Passwords match' : 'Passwords do not match'}
-              </p>
+            {fieldErrors.confirmPassword ? (
+              <p className="text-xs text-red-400">{fieldErrors.confirmPassword}</p>
+            ) : (
+              formData.confirmPassword && (
+                <p className={`text-xs ${passwordsMatch ? 'text-green-400' : 'text-red-400'}`}>
+                  {passwordsMatch ? 'Passwords match' : 'Passwords do not match'}
+                </p>
+              )
             )}
           </div>
 
@@ -319,10 +363,10 @@ const Register: React.FC = () => {
 
           <Button
             type="submit"
-            disabled={state.isLoading || !agreeToTerms}
+            disabled={state.isLoading || isSubmitting || !agreeToTerms || passwordStrength < 2}
             className="w-full bg-gold hover:bg-gold-light text-[#0A0A0A] font-bold py-5 sm:py-6 rounded-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-gold disabled:opacity-50 disabled:cursor-not-allowed text-base sm:text-lg"
           >
-            {state.isLoading ? (
+            {state.isLoading || isSubmitting ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="w-5 h-5 animate-spin" />
                 Creating account...

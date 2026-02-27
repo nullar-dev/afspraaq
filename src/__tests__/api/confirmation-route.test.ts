@@ -31,6 +31,9 @@ describe('bookings confirmation route', () => {
 
     const request = new NextRequest('http://localhost:3000/api/bookings/confirmation', {
       method: 'POST',
+      headers: {
+        'x-requested-with': 'XMLHttpRequest',
+      },
     });
 
     const response = await POST(request);
@@ -56,6 +59,7 @@ describe('bookings confirmation route', () => {
       method: 'POST',
       headers: {
         origin: 'https://nullar.dev',
+        'x-requested-with': 'XMLHttpRequest',
       },
     });
 
@@ -65,7 +69,7 @@ describe('bookings confirmation route', () => {
     expect(body.error.code).toBe('forbidden_origin');
   });
 
-  it('returns 403 when referer header cannot be parsed', async () => {
+  it('returns 403 when origin header is missing', async () => {
     mockCreateClient.mockResolvedValue({
       auth: {
         getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u1' } } }),
@@ -75,7 +79,7 @@ describe('bookings confirmation route', () => {
     const request = new NextRequest('http://localhost:3000/api/bookings/confirmation', {
       method: 'POST',
       headers: {
-        referer: '::not-a-valid-url::',
+        'x-requested-with': 'XMLHttpRequest',
       },
     });
 
@@ -97,6 +101,7 @@ describe('bookings confirmation route', () => {
       method: 'POST',
       headers: {
         origin: 'http://localhost:3000',
+        'x-requested-with': 'XMLHttpRequest',
       },
     });
 
@@ -121,6 +126,7 @@ describe('bookings confirmation route', () => {
       method: 'POST',
       headers: {
         origin: 'http://localhost:3000',
+        'x-requested-with': 'XMLHttpRequest',
       },
     });
 
@@ -145,6 +151,7 @@ describe('bookings confirmation route', () => {
       method: 'POST',
       headers: {
         origin: 'http://localhost:3000',
+        'x-requested-with': 'XMLHttpRequest',
       },
     });
 
@@ -168,6 +175,7 @@ describe('bookings confirmation route', () => {
       method: 'POST',
       headers: {
         origin: 'https://admin.example.com',
+        'x-requested-with': 'XMLHttpRequest',
       },
     });
 
@@ -186,6 +194,7 @@ describe('bookings confirmation route', () => {
       method: 'POST',
       headers: {
         origin: 'http://localhost:3000',
+        'x-requested-with': 'XMLHttpRequest',
         'x-forwarded-for': '203.0.113.10',
       },
     });

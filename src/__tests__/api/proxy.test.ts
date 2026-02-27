@@ -100,7 +100,7 @@ describe('proxy middleware', () => {
 
     expect(response.status).toBe(307);
     expect(redirectUrl.pathname).toBe('/login');
-    expect(redirectUrl.searchParams.get('redirect')).toBe('/');
+    expect(redirectUrl.searchParams.get('redirect')).toBe('/booking/vehicle');
   });
 
   it('redirects to /login when getUser resolves with null user', async () => {
@@ -119,7 +119,7 @@ describe('proxy middleware', () => {
 
     expect(response.status).toBe(307);
     expect(redirectUrl.pathname).toBe('/login');
-    expect(redirectUrl.searchParams.get('redirect')).toBe('/');
+    expect(redirectUrl.searchParams.get('redirect')).toBe('/booking/vehicle');
   });
 
   it('sanitizes external redirect query values to avoid open redirects', async () => {
@@ -140,7 +140,7 @@ describe('proxy middleware', () => {
 
     expect(response.status).toBe(307);
     expect(redirectUrl.pathname).toBe('/login');
-    expect(redirectUrl.searchParams.get('redirect')).toBe('/');
+    expect(redirectUrl.searchParams.get('redirect')).toBe('/booking/vehicle');
   });
 
   it('sanitizes malformed redirect query values with CRLF characters', async () => {
@@ -161,7 +161,7 @@ describe('proxy middleware', () => {
 
     expect(response.status).toBe(307);
     expect(redirectUrl.pathname).toBe('/login');
-    expect(redirectUrl.searchParams.get('redirect')).toBe('/');
+    expect(redirectUrl.searchParams.get('redirect')).toBe('/booking/vehicle');
   });
 
   it('handles unexpected getUser response shape by redirecting safely', async () => {

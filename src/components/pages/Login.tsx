@@ -74,10 +74,14 @@ const Login: React.FC = () => {
 
     try {
       await login(email, password);
-      if (rememberMe) {
-        localStorage.setItem('rememberedEmail', email);
-      } else {
-        localStorage.removeItem('rememberedEmail');
+      try {
+        if (rememberMe) {
+          localStorage.setItem('rememberedEmail', email.trim().toLowerCase());
+        } else {
+          localStorage.removeItem('rememberedEmail');
+        }
+      } catch {
+        // Storage can be unavailable in some browser privacy modes.
       }
       const redirectParam = searchParams.get('redirect');
       const safeRedirect =

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 
 const json = (body: unknown, status = 200) =>
@@ -9,7 +9,62 @@ const json = (body: unknown, status = 200) =>
     },
   });
 
-export async function POST() {
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_REQUESTS = 10;
+const ensureRateLimitStore = new Map<string, { count: number; resetAt: number }>();
+
+export const __resetEnsureProfileRateLimitForTests = () => {
+  ensureRateLimitStore.clear();
+};
+
+const parseAllowedOrigins = (request: NextRequest) => {
+  const configured = process.env.ALLOWED_ORIGINS?.split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
+
+  if (configured && configured.length > 0) {
+    return new Set(configured);
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    console.error('ALLOWED_ORIGINS is required in production for profile ensure endpoint.');
+    return new Set<string>();
+  }
+
+  return new Set([request.nextUrl.origin]);
+};
+
+const checkRateLimit = (key: string) => {
+  const now = Date.now();
+  const current = ensureRateLimitStore.get(key);
+  if (!current || current.resetAt <= now) {
+    ensureRateLimitStore.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+
+  if (current.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return true;
+  }
+
+  current.count += 1;
+  ensureRateLimitStore.set(key, current);
+  return false;
+};
+
+const hasBrowserRequestHeader = (request: NextRequest) =>
+  request.headers.get('x-requested-with') === 'XMLHttpRequest';
+
+export async function POST(request: NextRequest) {
+  if (!hasBrowserRequestHeader(request)) {
+    return json({ error: { code: 'forbidden_request', message: 'Forbidden' } }, 403);
+  }
+
+  const allowedOrigins = parseAllowedOrigins(request);
+  const requestOrigin = request.headers.get('origin');
+  if (!requestOrigin || !allowedOrigins.has(requestOrigin)) {
+    return json({ error: { code: 'forbidden_origin', message: 'Forbidden' } }, 403);
+  }
+
   const supabase = await createClient();
   if (!supabase) {
     return json(
@@ -24,6 +79,10 @@ export async function POST() {
 
   if (!user) {
     return json({ error: { code: 'unauthenticated', message: 'Unauthorized' } }, 401);
+  }
+
+  if (checkRateLimit(user.id)) {
+    return json({ error: { code: 'rate_limited', message: 'Too many requests.' } }, 429);
   }
 
   const normalizedEmail = (user.email ?? '').trim().toLowerCase();

@@ -87,6 +87,9 @@ const Payment: React.FC = () => {
         method: 'POST',
         cache: 'no-store',
         credentials: 'include',
+        headers: {
+          'x-requested-with': 'XMLHttpRequest',
+        },
       },
       10_000
     );

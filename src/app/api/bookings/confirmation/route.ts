@@ -101,8 +101,14 @@ const parseAllowedOrigins = (request: NextRequest) => {
 };
 
 const getHeaderOrigin = (request: NextRequest) => request.headers.get('origin');
+const hasBrowserRequestHeader = (request: NextRequest) =>
+  request.headers.get('x-requested-with') === 'XMLHttpRequest';
 
 export async function POST(request: NextRequest) {
+  if (!hasBrowserRequestHeader(request)) {
+    return errorResponse({ code: 'forbidden_request', message: 'Forbidden' }, 403);
+  }
+
   const allowedOrigins = parseAllowedOrigins(request);
   const requestOrigin = getHeaderOrigin(request);
   if (!requestOrigin || !allowedOrigins.has(requestOrigin)) {
@@ -124,7 +130,8 @@ export async function POST(request: NextRequest) {
     return errorResponse({ code: 'unauthenticated', message: 'Unauthorized' }, 401);
   }
 
-  const rateLimitKey = user.id;
+  const userAgent = (request.headers.get('user-agent') ?? 'unknown').slice(0, 120);
+  const rateLimitKey = `${user.id}:${userAgent}`;
   const rateLimitResult = checkRateLimit(rateLimitKey);
   if (rateLimitResult.limited) {
     return errorResponse(

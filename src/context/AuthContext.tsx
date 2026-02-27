@@ -12,6 +12,7 @@ import React, {
 import type { AuthChangeEvent, Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/utils/supabase/client';
 import { mapAuthError } from '@/lib/auth-errors';
+import { fetchWithTimeout } from '@/lib/http';
 
 interface User {
   id: string;
@@ -80,6 +81,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const sessionExpiryTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionWarningTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionCountdownIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const isExtendingSessionRef = React.useRef(false);
   const [state, setState] = useState<AuthState>({
     ...initialState,
     isLoading: !!supabase,
@@ -145,11 +147,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const ensureProfileRow = useCallback(async () => {
     try {
-      await fetch('/api/auth/profile/ensure', {
-        method: 'POST',
-        credentials: 'include',
-        cache: 'no-store',
-      });
+      const response = await fetchWithTimeout(
+        '/api/auth/profile/ensure',
+        {
+          method: 'POST',
+          credentials: 'include',
+          cache: 'no-store',
+          headers: {
+            'x-requested-with': 'XMLHttpRequest',
+          },
+        },
+        10_000
+      );
+      if (!response.ok) {
+        console.warn('Profile ensure request failed', { status: response.status });
+      }
     } catch {
       // Profile repair is best-effort and must not block auth UX.
     }
@@ -157,7 +169,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     const onUnhandledRejection = (event: PromiseRejectionEvent) => {
-      console.error('Unhandled promise rejection', event.reason);
+      const message = event.reason instanceof Error ? event.reason.message : 'unknown';
+      console.error('Unhandled promise rejection', { message });
     };
     window.addEventListener('unhandledrejection', onUnhandledRejection);
     return () => {
@@ -199,8 +212,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       } catch {
         if (!mounted) return;
-        setState({ ...initialState, isLoading: false });
-        clearSessionTimers();
+        setState(prev => ({ ...prev, isLoading: false }));
       }
     };
 
@@ -254,7 +266,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     setState(prev => ({ ...prev, isLoading: true }));
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const normalizedEmail = email.trim().toLowerCase();
+    const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
 
     if (error) {
       setState(prev => ({ ...prev, isLoading: false }));
@@ -270,15 +283,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const register = async (data: RegisterData): Promise<RegisterResult> => {
     if (!supabase) throw new Error('Registration is unavailable.');
 
+    const normalizedEmail = data.email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setState(prev => ({ ...prev, isLoading: false }));
+      throw new Error('Unable to create account. Please try again later.');
+    }
+    const normalizedFirstName = data.firstName.trim();
+    const normalizedLastName = data.lastName.trim();
+
     setState(prev => ({ ...prev, isLoading: true }));
 
     const { data: result, error } = await supabase.auth.signUp({
-      email: data.email,
+      email: normalizedEmail,
       password: data.password,
       options: {
         data: {
-          first_name: data.firstName,
-          last_name: data.lastName,
+          first_name: normalizedFirstName,
+          last_name: normalizedLastName,
         },
       },
     });
@@ -297,21 +318,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = async () => {
     if (!supabase) return;
     clearSessionTimers();
-    await supabase.auth.signOut();
-    setState({ ...initialState, isLoading: false });
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Ensure local auth state is always cleared.
+    } finally {
+      setState({ ...initialState, isLoading: false });
+    }
   };
 
   const extendSession = async () => {
     if (!supabase) throw new Error('Session extension is unavailable.');
-    const { data, error } = await supabase.auth.refreshSession();
-    if (error) {
-      throw new Error('Unable to extend session right now.');
+    if (isExtendingSessionRef.current) return;
+    isExtendingSessionRef.current = true;
+    try {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error) {
+        throw new Error('Unable to extend session right now.');
+      }
+      scheduleSessionWarnings(data.session?.expires_at);
+      setState(prev => ({
+        ...prev,
+        showSessionExpiryWarning: false,
+      }));
+    } finally {
+      isExtendingSessionRef.current = false;
     }
-    scheduleSessionWarnings(data.session?.expires_at);
-    setState(prev => ({
-      ...prev,
-      showSessionExpiryWarning: false,
-    }));
   };
 
   return (

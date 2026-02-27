@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { POST, GET } from '@/app/api/auth/profile/ensure/route';
+import { NextRequest } from 'next/server';
+import {
+  POST,
+  GET,
+  __resetEnsureProfileRateLimitForTests,
+} from '@/app/api/auth/profile/ensure/route';
 
 const mockCreateClient = vi.fn();
 const mockUpsert = vi.fn();
@@ -9,8 +14,19 @@ vi.mock('@/utils/supabase/server', () => ({
 }));
 
 describe('auth profile ensure route', () => {
+  const makeRequest = (url = 'http://localhost:3000/api/auth/profile/ensure') =>
+    new NextRequest(url, {
+      method: 'POST',
+      headers: {
+        origin: 'http://localhost:3000',
+        'x-requested-with': 'XMLHttpRequest',
+      },
+    });
+
   beforeEach(() => {
     vi.clearAllMocks();
+    delete process.env.ALLOWED_ORIGINS;
+    __resetEnsureProfileRateLimitForTests();
   });
 
   it('returns 405 for GET', async () => {
@@ -20,7 +36,7 @@ describe('auth profile ensure route', () => {
 
   it('returns 503 when auth is unavailable', async () => {
     mockCreateClient.mockResolvedValue(null);
-    const response = await POST();
+    const response = await POST(makeRequest());
     const body = await response.json();
     expect(response.status).toBe(503);
     expect(body.error.code).toBe('auth_unavailable');
@@ -32,7 +48,7 @@ describe('auth profile ensure route', () => {
         getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
       },
     });
-    const response = await POST();
+    const response = await POST(makeRequest());
     const body = await response.json();
     expect(response.status).toBe(401);
     expect(body.error.code).toBe('unauthenticated');
@@ -48,7 +64,7 @@ describe('auth profile ensure route', () => {
       },
       from: vi.fn(() => ({ upsert: mockUpsert })),
     });
-    const response = await POST();
+    const response = await POST(makeRequest());
     const body = await response.json();
     expect(response.status).toBe(200);
     expect(body.ok).toBe(true);
@@ -69,7 +85,7 @@ describe('auth profile ensure route', () => {
       from: vi.fn(() => ({ upsert: mockUpsert })),
     });
 
-    const response = await POST();
+    const response = await POST(makeRequest());
     expect(response.status).toBe(200);
     expect(mockUpsert).toHaveBeenCalledWith(
       { id: 'u2', email: null, role: 'user' },
@@ -88,9 +104,52 @@ describe('auth profile ensure route', () => {
       from: vi.fn(() => ({ upsert: mockUpsert })),
     });
 
-    const response = await POST();
+    const response = await POST(makeRequest());
     const body = await response.json();
     expect(response.status).toBe(500);
     expect(body.error.code).toBe('profile_repair_failed');
+  });
+
+  it('returns 403 when browser request header is missing', async () => {
+    const request = new NextRequest('http://localhost:3000/api/auth/profile/ensure', {
+      method: 'POST',
+      headers: { origin: 'http://localhost:3000' },
+    });
+    const response = await POST(request);
+    const body = await response.json();
+    expect(response.status).toBe(403);
+    expect(body.error.code).toBe('forbidden_request');
+  });
+
+  it('returns 403 when origin is missing', async () => {
+    const request = new NextRequest('http://localhost:3000/api/auth/profile/ensure', {
+      method: 'POST',
+      headers: { 'x-requested-with': 'XMLHttpRequest' },
+    });
+    const response = await POST(request);
+    const body = await response.json();
+    expect(response.status).toBe(403);
+    expect(body.error.code).toBe('forbidden_origin');
+  });
+
+  it('returns 429 when per-user profile ensure requests exceed route limit', async () => {
+    mockUpsert.mockResolvedValue({ error: null });
+    mockCreateClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'rate-user', email: 'rate@example.com' } },
+        }),
+      },
+      from: vi.fn(() => ({ upsert: mockUpsert })),
+    });
+
+    let response: Awaited<ReturnType<typeof POST>> | null = null;
+    for (let i = 0; i < 11; i += 1) {
+      response = await POST(makeRequest());
+    }
+
+    expect(response).not.toBeNull();
+    if (!response) throw new Error('Expected response');
+    expect(response.status).toBe(429);
   });
 });

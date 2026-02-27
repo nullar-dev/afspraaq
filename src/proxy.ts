@@ -97,13 +97,17 @@ export async function proxy(request: NextRequest) {
       data: { user: supabaseUser },
     } = await supabase.auth.getUser();
     user = supabaseUser;
-  } catch {
+  } catch (error) {
+    console.warn('proxy auth lookup failed', {
+      message: error instanceof Error ? error.message : 'unknown',
+    });
     user = null;
   }
 
   const { pathname } = request.nextUrl;
   const redirectParam = request.nextUrl.searchParams.get('redirect');
-  const safeRedirect: string = isSafeRedirect(redirectParam) ? redirectParam : '/';
+  const fallbackRoute = ALLOWED_REDIRECTS.has(pathname) ? pathname : '/';
+  const safeRedirect: string = isSafeRedirect(redirectParam) ? redirectParam : fallbackRoute;
 
   const publicRoutes = ['/login', '/register', '/'];
   const isPublicRoute = publicRoutes.includes(pathname);
@@ -127,6 +131,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|css|js)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|css|js)$).*)',
   ],
 };

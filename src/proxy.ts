@@ -17,7 +17,7 @@ export async function proxy(request: NextRequest) {
     supabaseKey === 'placeholder-key'
   ) {
     const { pathname } = request.nextUrl;
-    const publicRoutes = ['/login', '/register', '/'];
+    const publicRoutes = ['/login', '/register', '/', '/prototype'];
     if (!publicRoutes.includes(pathname)) {
       const url = new URL('/login', request.url);
       return NextResponse.redirect(url);

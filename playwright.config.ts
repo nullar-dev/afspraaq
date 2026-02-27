@@ -69,8 +69,8 @@ const config = defineConfig({
     // URL to check
     url: process.env.E2E_BASE_URL || 'http://localhost:3000',
 
-    // Reuse existing server (useful for local production testing)
-    reuseExistingServer: process.env.E2E_REUSE_SERVER !== 'false' && !process.env.CI,
+    // Use a fresh server by default to avoid stale builds in local runs.
+    reuseExistingServer: process.env.E2E_REUSE_SERVER === 'true' && !process.env.CI,
 
     // Timeout (5 minutes to account for build + test)
     timeout: parseInt(process.env.E2E_TIMEOUT_MS || '300000', 10) || 300000,

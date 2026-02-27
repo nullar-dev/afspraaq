@@ -2,6 +2,11 @@
   "name": "afspraaq",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@10.30.2",
+  "engines": {
+    "node": "24.x",
+    "pnpm": "10.x"
+  },
   "scripts": {
     "build": "next build",
     "start": "next start",
@@ -17,15 +22,27 @@
     "test:component": "vitest run",
     "test:api": "vitest run",
     "test:e2e": "playwright test",
-    "sentry": "sentry"
+    "sentry": "sentry",
+    "supabase:types:check": "test -f src/types/supabase.generated.ts",
+    "dev:db:reset": "bash scripts/local-dev-reset.sh",
+    "dev:db:seed": "bash scripts/local-dev-seed.sh"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-slot": "^1.2.4",
     "@sentry/nextjs": "^10.40.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.98.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.575.0",
     "next": "^16.1.6",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "tailwind-merge": "^3.5.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.4",
@@ -39,13 +56,18 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
     "@vitest/coverage-v8": "^4.0.18",
+    "autoprefixer": "^10.4.27",
     "eslint": "^9.39.3",
     "eslint-config-next": "^16.1.6",
     "jsdom": "^28.1.0",
     "lint-staged": "^16.2.7",
     "playwright": "^1.58.2",
+    "postcss": "^8.5.6",
     "prettier": "^3.8.1",
+    "tailwindcss": "3.4.17",
+    "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1",
     "vitest": "^4.0.18"
   },
   "lint-staged": {

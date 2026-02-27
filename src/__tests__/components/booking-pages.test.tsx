@@ -90,8 +90,8 @@ describe('Booking Pages', () => {
     renderWithBooking(<SchedulePage />);
 
     const selectableDayButton = screen
-      .getAllByRole('button')
-      .find(button => /^\d+$/.test(button.textContent ?? '') && !button.hasAttribute('disabled'));
+      .getAllByRole('button', { name: /^\d{1,2}$/ })
+      .find(button => !button.hasAttribute('disabled'));
     expect(selectableDayButton).toBeDefined();
     fireEvent.click(selectableDayButton!);
     fireEvent.click(screen.getByRole('button', { name: '10:00 AM' }));
@@ -173,8 +173,8 @@ describe('Booking Pages', () => {
     await act(async () => {
       vi.advanceTimersByTime(2500);
       await Promise.resolve();
+      await Promise.resolve();
     });
-
     expect(screen.getByText(/booking confirmed/i)).toBeTruthy();
     expect(screen.getByText(/confirmation number/i)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /book another vehicle/i }));
@@ -213,8 +213,8 @@ describe('Booking Pages', () => {
     await act(async () => {
       vi.advanceTimersByTime(2500);
       await Promise.resolve();
+      await Promise.resolve();
     });
-
     expect(screen.queryByText(/booking confirmed/i)).toBeNull();
     expect(screen.getByText(/unable to confirm booking right now/i)).toBeTruthy();
   });

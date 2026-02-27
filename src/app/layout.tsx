@@ -1,8 +1,6 @@
 import { Metadata } from 'next';
 import './globals.css';
 
-export const revalidate = 60;
-
 export const metadata: Metadata = {
   title: 'Afspraaq',
   description: 'Scheduling and booking system',

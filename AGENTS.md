@@ -4,7 +4,6 @@
 
 - Application code lives in `src/` using Next.js App Router.
 - Routes are under `src/app/` (for example: `src/app/login/page.tsx`, `src/app/register/page.tsx`).
-- Reusable UI components live in `src/components/ui/`.
 - Shared helpers and styling utilities are in `src/lib/` and `src/utils/` (Supabase clients are in `src/utils/supabase/`).
 - Tests are grouped by type in `src/__tests__/`: `unit/`, `components/`, `api/`, and `e2e/`.
 - Database artifacts are in `supabase/` (`config.toml`, `migrations/*.sql`).
@@ -27,7 +26,7 @@
 - Prettier rules: single quotes, semicolons, trailing commas (`es5`), `printWidth: 100`.
 - Use the `@/` alias for imports from `src/`.
 - Components use PascalCase filenames where appropriate; route segments remain lowercase (Next.js convention).
-- Keep UI primitives in `src/components/ui/`; keep business logic in `src/lib` or `src/utils`.
+- Keep page-level UI in `src/app/*`; keep business logic in `src/utils`.
 
 ## Testing Guidelines
 

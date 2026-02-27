@@ -70,6 +70,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4

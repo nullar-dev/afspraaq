@@ -218,4 +218,117 @@ describe('Booking Pages', () => {
     expect(screen.queryByText(/booking confirmed/i)).toBeNull();
     expect(screen.getByText(/unable to confirm booking right now/i)).toBeTruthy();
   });
+
+  it('shows retryable error when confirmation endpoint returns non-json', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: {
+          get: (name: string) => (name.toLowerCase() === 'content-type' ? 'text/html' : null),
+        },
+        json: async () => ({ code: 'GC-UNUSED' }),
+      })
+    );
+    renderWithBooking(<SeededPaymentPage />);
+
+    fireEvent.click(screen.getByText('seed-vehicle'));
+    fireEvent.click(screen.getByText('seed-package'));
+    fireEvent.click(screen.getByText('seed-date'));
+    fireEvent.click(screen.getByText('seed-time'));
+
+    fireEvent.change(screen.getByLabelText(/card number/i), {
+      target: { value: '4111111111111111' },
+    });
+    fireEvent.change(screen.getByLabelText(/expiry date/i), { target: { value: '1229' } });
+    fireEvent.change(screen.getByLabelText(/cvv/i), { target: { value: '123' } });
+    fireEvent.change(screen.getByLabelText(/cardholder name/i), { target: { value: 'jane doe' } });
+
+    const activeButton = screen
+      .getAllByRole('button', { name: /complete booking/i })
+      .find(button => !button.hasAttribute('disabled'));
+    expect(activeButton).toBeDefined();
+    fireEvent.click(activeButton!);
+
+    await act(async () => {
+      vi.advanceTimersByTime(2500);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText(/booking confirmed/i)).toBeNull();
+    expect(screen.getByText(/unable to confirm booking right now/i)).toBeTruthy();
+  });
+
+  it('shows retryable error when confirmation endpoint returns invalid json', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: {
+          get: (name: string) =>
+            name.toLowerCase() === 'content-type' ? 'application/json; charset=utf-8' : null,
+        },
+        json: async () => {
+          throw new Error('invalid json');
+        },
+      })
+    );
+    renderWithBooking(<SeededPaymentPage />);
+
+    fireEvent.click(screen.getByText('seed-vehicle'));
+    fireEvent.click(screen.getByText('seed-package'));
+    fireEvent.click(screen.getByText('seed-date'));
+    fireEvent.click(screen.getByText('seed-time'));
+
+    fireEvent.change(screen.getByLabelText(/card number/i), {
+      target: { value: '4111111111111111' },
+    });
+    fireEvent.change(screen.getByLabelText(/expiry date/i), { target: { value: '1229' } });
+    fireEvent.change(screen.getByLabelText(/cvv/i), { target: { value: '123' } });
+    fireEvent.change(screen.getByLabelText(/cardholder name/i), { target: { value: 'jane doe' } });
+
+    const activeButton = screen
+      .getAllByRole('button', { name: /complete booking/i })
+      .find(button => !button.hasAttribute('disabled'));
+    expect(activeButton).toBeDefined();
+    fireEvent.click(activeButton!);
+
+    await act(async () => {
+      vi.advanceTimersByTime(2500);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText(/booking confirmed/i)).toBeNull();
+    expect(screen.getByText(/unable to confirm booking right now/i)).toBeTruthy();
+  });
+
+  it('accepts valid amex details (15-digit card with 4-digit cvv)', () => {
+    renderWithBooking(<SeededPaymentPage />);
+
+    fireEvent.click(screen.getByText('seed-vehicle'));
+    fireEvent.click(screen.getByText('seed-package'));
+    fireEvent.click(screen.getByText('seed-date'));
+    fireEvent.click(screen.getByText('seed-time'));
+
+    fireEvent.change(screen.getByLabelText(/card number/i), {
+      target: { value: '378282246310005' },
+    });
+    fireEvent.change(screen.getByLabelText(/expiry date/i), { target: { value: '1229' } });
+    fireEvent.change(screen.getByLabelText(/cvv/i), { target: { value: '1234' } });
+    fireEvent.change(screen.getByLabelText(/cardholder name/i), { target: { value: 'jane doe' } });
+
+    const activeButton = screen
+      .getAllByRole('button', { name: /complete booking/i })
+      .find(button => !button.hasAttribute('disabled'));
+    expect(activeButton).toBeDefined();
+    expect(screen.getByText(/amex/i)).toBeTruthy();
+  });
 });

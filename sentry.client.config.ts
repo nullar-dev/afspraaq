@@ -18,6 +18,12 @@ const scrubSensitiveData = (event: Sentry.Event) => {
     delete event.request.headers.Authorization;
     delete event.request.headers.cookie;
     delete event.request.headers.Cookie;
+    delete event.request.headers['x-api-key'];
+    delete event.request.headers['X-API-KEY'];
+    delete event.request.headers['x-auth-token'];
+    delete event.request.headers['X-AUTH-TOKEN'];
+    delete event.request.headers['proxy-authorization'];
+    delete event.request.headers['Proxy-Authorization'];
   }
 
   if (event.request?.url) {

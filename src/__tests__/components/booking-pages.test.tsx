@@ -54,6 +54,12 @@ describe('Booking Pages', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: {
+          get: (name: string) =>
+            name.toLowerCase() === 'content-type' ? 'application/json; charset=utf-8' : null,
+        },
         json: async () => ({ code: 'GC-0123456789ABCDEF0123456789ABCDEF' }),
       })
     );

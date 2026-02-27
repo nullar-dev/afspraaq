@@ -81,17 +81,34 @@ const Payment: React.FC = () => {
   };
 
   const requestConfirmationCode = async () => {
-    const response = await fetchWithTimeout('/api/bookings/confirmation', {
-      method: 'POST',
-      cache: 'no-store',
-      credentials: 'include',
-    });
+    const response = await fetchWithTimeout(
+      '/api/bookings/confirmation',
+      {
+        method: 'POST',
+        cache: 'no-store',
+        credentials: 'include',
+      },
+      10_000
+    );
 
     if (!response.ok) {
-      throw new Error('Unable to create confirmation code');
+      throw new Error(
+        `Unable to create confirmation code (${response.status} ${response.statusText || 'error'})`
+      );
     }
 
-    const body = await response.json();
+    const contentType = response.headers.get('content-type') ?? '';
+    if (!contentType.toLowerCase().includes('application/json')) {
+      throw new Error('Unable to create confirmation code (unexpected response type)');
+    }
+
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      throw new Error('Unable to create confirmation code (invalid JSON response)');
+    }
+
     return decodeBookingConfirmationResponse(body).code;
   };
 

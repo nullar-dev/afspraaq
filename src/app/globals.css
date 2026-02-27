@@ -68,51 +68,6 @@ a {
   cursor: not-allowed;
 }
 
-.btn--sm {
-  padding: 0.35rem 0.6rem;
-}
-
-.btn--md {
-  padding: 0.5rem 0.75rem;
-}
-
-.btn--lg {
-  padding: 0.65rem 1rem;
-}
-
-.btn--icon {
-  width: 2.25rem;
-  height: 2.25rem;
-}
-
-.btn--destructive {
-  border-color: #cc9a9a;
-  background: #fdf2f2;
-}
-
-.btn--outline,
-.btn--secondary,
-.btn--ghost,
-.btn--link,
-.btn--default {
-  background: #f2f2f2;
-}
-
-.msg {
-  border-radius: 6px;
-  padding: 0.5rem 0.65rem;
-}
-
-.msg--ok {
-  border: 1px solid #a6d7b2;
-  background: #eefaf1;
-}
-
-.msg--err {
-  border: 1px solid #e5b0b0;
-  background: #fff4f4;
-}
-
 .spinner {
   width: 24px;
   height: 24px;

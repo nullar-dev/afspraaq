@@ -31,10 +31,14 @@ const Login: React.FC = () => {
   );
 
   useEffect(() => {
-    const rememberedEmail = localStorage.getItem('rememberedEmail');
-    if (rememberedEmail) {
-      setEmail(rememberedEmail);
-      setRememberMe(true);
+    try {
+      const rememberedEmail = localStorage.getItem('rememberedEmail');
+      if (rememberedEmail) {
+        setEmail(rememberedEmail);
+        setRememberMe(true);
+      }
+    } catch {
+      // Storage can be unavailable in some browser privacy modes.
     }
   }, []);
 
@@ -62,7 +66,9 @@ const Login: React.FC = () => {
         redirectParam.length <= 200 &&
         redirectParam.startsWith('/') &&
         !redirectParam.startsWith('//') &&
-        !redirectParam.includes('\\')
+        !redirectParam.includes('\\') &&
+        !redirectParam.includes('\n') &&
+        !redirectParam.includes('\r')
           ? redirectParam
           : '/booking/vehicle';
       router.push(safeRedirect);

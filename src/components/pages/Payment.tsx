@@ -33,6 +33,7 @@ const Payment: React.FC = () => {
   const [confirmationCode, setConfirmationCode] = useState('');
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const completionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
 
   const confettiParticles = useMemo(
     () =>
@@ -76,6 +77,26 @@ const Payment: React.FC = () => {
     setPaymentDetails(prev => ({ ...prev, [field]: value }));
   };
 
+  const requestConfirmationCode = async () => {
+    const response = await fetch('/api/bookings/confirmation', {
+      method: 'POST',
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      throw new Error('Unable to create confirmation code');
+    }
+
+    const body = (await response.json()) as { code?: string };
+    const code = body.code ?? '';
+
+    if (!/^GC-[A-Z0-9]{9}$/.test(code)) {
+      throw new Error('Invalid confirmation code');
+    }
+
+    return code;
+  };
+
   const handleSubmit = () => {
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
@@ -94,20 +115,32 @@ const Payment: React.FC = () => {
 
     // Simulate payment processing
     completionTimeoutRef.current = setTimeout(() => {
-      setIsProcessing(false);
-      setShowSuccess(true);
-      setProgress(0);
-      setConfirmationCode(createMockConfirmationCode());
+      void (async () => {
+        let code = 'GC-PENDING';
+        try {
+          code = await requestConfirmationCode();
+        } catch {
+          code = 'GC-PENDING';
+        }
+
+        if (!isMountedRef.current) return;
+
+        setIsProcessing(false);
+        setShowSuccess(true);
+        setProgress(0);
+        setConfirmationCode(code);
+      })();
     }, 2200);
   };
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
-    },
-    []
-  );
+    };
+  }, []);
 
   const canSubmit = () => {
     const { cardNumber, expiryDate, cvv, cardholderName } = paymentDetails;
@@ -199,15 +232,6 @@ const Payment: React.FC = () => {
     setShowSuccess(false);
     setPaymentDetails({ cardNumber: '', expiryDate: '', cvv: '', cardholderName: '' });
     router.push('/booking/vehicle');
-  };
-
-  const createMockConfirmationCode = () => {
-    const randomNumber =
-      typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function'
-        ? crypto.getRandomValues(new Uint32Array(1))[0]
-        : Math.floor(Math.random() * 0xffffffff);
-    const randomPart = randomNumber.toString(36).toUpperCase().padStart(9, '0').slice(0, 9);
-    return `GC-${randomPart}`;
   };
 
   return (

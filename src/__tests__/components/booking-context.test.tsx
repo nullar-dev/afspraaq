@@ -15,7 +15,9 @@ function BookingHarness() {
       <button onClick={() => goToStep('services')}>go-services</button>
       <button onClick={() => nextStep()}>next</button>
       <button onClick={() => prevStep()}>prev</button>
-      <button onClick={() => dispatch({ type: 'SET_VEHICLE', payload: 'sedan' })}>vehicle</button>
+      <button onClick={() => dispatch({ type: 'SET_VEHICLE', payload: 'vehicle-sedan' })}>
+        vehicle
+      </button>
       <button onClick={() => dispatch({ type: 'SET_PACKAGE', payload: 'premium' })}>package</button>
       <button onClick={() => dispatch({ type: 'TOGGLE_ADDON', payload: 'wheel-coating' })}>
         addon
@@ -70,7 +72,7 @@ describe('BookingContext', () => {
     fireEvent.click(screen.getByText('time'));
     fireEvent.click(screen.getByText('date'));
     fireEvent.click(screen.getByText('customer'));
-    expect(screen.getByTestId('vehicle').textContent).toBe('sedan');
+    expect(screen.getByTestId('vehicle').textContent).toBe('vehicle-sedan');
     expect(screen.getByTestId('package').textContent).toBe('premium');
     expect(screen.getByTestId('addons').textContent).toBe('none');
     expect(screen.getByTestId('time').textContent).toBe('10:00 AM');

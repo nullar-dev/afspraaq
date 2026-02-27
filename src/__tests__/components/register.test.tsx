@@ -122,4 +122,38 @@ describe('Register Page', () => {
       expect(screen.getByText(/unable to create account/i)).toBeTruthy();
     });
   });
+
+  it('does not leak invalid email details in register errors', async () => {
+    mockRegister.mockRejectedValueOnce(new Error('Invalid email format'));
+
+    const { default: RegisterPage } = await import('../../app/register/page');
+    const user = userEvent.setup();
+    render(<RegisterPage />);
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole('checkbox', { name: /i agree to the terms/i }));
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/unable to create account/i)).toBeTruthy();
+      expect(screen.queryByText(/invalid email format/i)).toBeNull();
+    });
+  });
+
+  it('does not leak existing account details in register errors', async () => {
+    mockRegister.mockRejectedValueOnce(new Error('User already registered'));
+
+    const { default: RegisterPage } = await import('../../app/register/page');
+    const user = userEvent.setup();
+    render(<RegisterPage />);
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole('checkbox', { name: /i agree to the terms/i }));
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/unable to create account/i)).toBeTruthy();
+      expect(screen.queryByText(/user already registered/i)).toBeNull();
+    });
+  });
 });

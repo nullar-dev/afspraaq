@@ -1,7 +1,8 @@
 export type VehicleType = 'sedan' | 'crossover' | 'suv' | 'luxury';
 
 export interface Vehicle {
-  id: VehicleType;
+  id: string;
+  type: VehicleType;
   name: string;
   subtitle: string;
   price: number;
@@ -47,7 +48,7 @@ export type BookingStep = 'vehicle' | 'services' | 'schedule' | 'customer' | 'pa
 
 export interface BookingState {
   currentStep: BookingStep;
-  selectedVehicle: VehicleType | null;
+  selectedVehicle: string | null;
   selectedPackage: string | null;
   selectedAddOns: string[];
   selectedDate: Date | null;

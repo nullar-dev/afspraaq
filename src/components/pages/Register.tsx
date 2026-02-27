@@ -27,6 +27,23 @@ const Register: React.FC = () => {
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [error, setError] = useState('');
 
+  const toSafeRegisterError = (err: unknown) => {
+    if (!(err instanceof Error)) {
+      return 'Unable to create account. Please try again later.';
+    }
+    const message = err.message.toLowerCase();
+
+    if (message.includes('too many attempts')) {
+      return 'Too many attempts. Please wait a moment and try again.';
+    }
+    if (message.includes('password does not meet')) {
+      return 'Password does not meet requirements.';
+    }
+
+    // Prevent account enumeration and raw upstream error disclosure.
+    return 'Unable to create account. Please try again later.';
+  };
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
 
@@ -70,7 +87,7 @@ const Register: React.FC = () => {
       router.push('/booking/vehicle');
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to create account.');
+      setError(toSafeRegisterError(err));
     }
   };
 

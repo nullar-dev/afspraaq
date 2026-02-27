@@ -29,7 +29,7 @@ function SeededPaymentPage() {
 
   return (
     <>
-      <button onClick={() => dispatch({ type: 'SET_VEHICLE', payload: 'sedan' })}>
+      <button onClick={() => dispatch({ type: 'SET_VEHICLE', payload: 'vehicle-sedan' })}>
         seed-vehicle
       </button>
       <button onClick={() => dispatch({ type: 'SET_PACKAGE', payload: 'premium' })}>
@@ -50,10 +50,18 @@ function SeededPaymentPage() {
 describe('Booking Pages', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ code: 'GC-ABC123DEF' }),
+      })
+    );
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it('renders vehicle page and selects vehicle', () => {
@@ -133,8 +141,9 @@ describe('Booking Pages', () => {
     expect(activeButton).toBeDefined();
     fireEvent.click(activeButton!);
 
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(2500);
+      await Promise.resolve();
     });
 
     expect(screen.getByText(/booking confirmed/i)).toBeTruthy();

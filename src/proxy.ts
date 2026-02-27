@@ -52,7 +52,9 @@ export async function proxy(request: NextRequest) {
     redirectParam.length <= 200 &&
     redirectParam.startsWith('/') &&
     !redirectParam.startsWith('//') &&
-    !redirectParam.includes('\\')
+    !redirectParam.includes('\\') &&
+    !redirectParam.includes('\n') &&
+    !redirectParam.includes('\r')
       ? redirectParam
       : '/';
 

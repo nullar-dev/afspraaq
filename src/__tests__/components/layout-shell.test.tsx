@@ -78,8 +78,8 @@ describe('Booking shell components', () => {
     render(<Header />);
     const menuButton = screen.getByRole('button', { name: /open menu/i });
     fireEvent.click(menuButton);
-    expect(screen.getAllByText('Support').length).toBeGreaterThan(1);
-    expect(screen.getAllByText('Dashboard').length).toBeGreaterThan(1);
+    expect(screen.getAllByRole('button', { name: 'Support' }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByRole('button', { name: 'Dashboard' }).length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders stepper and summary within booking provider', () => {

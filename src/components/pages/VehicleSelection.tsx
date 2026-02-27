@@ -5,13 +5,12 @@ import { Check, Info, ChevronRight, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 import { useBooking } from '@/context/BookingContext';
 import { vehicles } from '@/data/bookingData';
-import type { VehicleType } from '@/types/booking';
 
 const VehicleSelection: React.FC = () => {
   const { state, dispatch } = useBooking();
   const [hoveredVehicle, setHoveredVehicle] = useState<string | null>(null);
 
-  const handleSelectVehicle = (vehicleId: VehicleType) => {
+  const handleSelectVehicle = (vehicleId: string) => {
     dispatch({ type: 'SET_VEHICLE', payload: vehicleId });
   };
 

@@ -8,7 +8,7 @@ function SeedState() {
 
   return (
     <>
-      <button onClick={() => dispatch({ type: 'SET_VEHICLE', payload: 'sedan' })}>
+      <button onClick={() => dispatch({ type: 'SET_VEHICLE', payload: 'vehicle-sedan' })}>
         set-vehicle
       </button>
       <button onClick={() => dispatch({ type: 'SET_PACKAGE', payload: 'premium' })}>
@@ -22,7 +22,7 @@ function SeedState() {
         onClick={() =>
           dispatch({
             type: 'SET_CUSTOMER_DETAILS',
-            payload: { firstName: 'A', lastName: 'B', email: 'x@y.com', phone: '123' },
+            payload: { firstName: 'A', lastName: 'B', email: 'x@y.com', phone: '1234567' },
           })
         }
       >
@@ -51,7 +51,7 @@ function StepControls() {
       <button onClick={() => dispatch({ type: 'SET_STEP', payload: 'payment' })}>
         step-payment
       </button>
-      <button onClick={() => dispatch({ type: 'SET_VEHICLE', payload: 'sedan' })}>
+      <button onClick={() => dispatch({ type: 'SET_VEHICLE', payload: 'vehicle-sedan' })}>
         has-vehicle
       </button>
       <button onClick={() => dispatch({ type: 'SET_PACKAGE', payload: 'premium' })}>
@@ -69,7 +69,7 @@ function StepControls() {
               firstName: 'Jane',
               lastName: 'Doe',
               email: 'jane@example.com',
-              phone: '123',
+              phone: '1234567',
             },
           })
         }

@@ -1,11 +1,11 @@
 'use client';
 
 import React, { createContext, useContext, useReducer, type ReactNode } from 'react';
-import type { BookingStep, VehicleType, CustomerDetails } from '@/types/booking';
+import type { BookingStep, CustomerDetails } from '@/types/booking';
 
 interface BookingState {
   currentStep: BookingStep;
-  selectedVehicle: VehicleType | null;
+  selectedVehicle: string | null;
   selectedPackage: string | null;
   selectedAddOns: string[];
   selectedDate: Date | null;
@@ -15,7 +15,7 @@ interface BookingState {
 
 type BookingAction =
   | { type: 'SET_STEP'; payload: BookingStep }
-  | { type: 'SET_VEHICLE'; payload: VehicleType }
+  | { type: 'SET_VEHICLE'; payload: string }
   | { type: 'SET_PACKAGE'; payload: string }
   | { type: 'TOGGLE_ADDON'; payload: string }
   | { type: 'SET_DATE'; payload: Date }
@@ -43,6 +43,31 @@ const initialState: BookingState = {
   },
 };
 
+const isCustomerDetailsKey = (key: string): key is keyof CustomerDetails =>
+  [
+    'firstName',
+    'lastName',
+    'email',
+    'phone',
+    'address',
+    'city',
+    'state',
+    'zipCode',
+    'specialRequests',
+  ].includes(key);
+
+const sanitizeCustomerDetailsPayload = (payload: Partial<CustomerDetails>) => {
+  const nextPayload: Partial<CustomerDetails> = {};
+
+  for (const [key, value] of Object.entries(payload)) {
+    if (!isCustomerDetailsKey(key)) continue;
+    if (typeof value !== 'string') continue;
+    nextPayload[key] = value;
+  }
+
+  return nextPayload;
+};
+
 const bookingReducer = (state: BookingState, action: BookingAction): BookingState => {
   switch (action.type) {
     case 'SET_STEP':
@@ -52,6 +77,9 @@ const bookingReducer = (state: BookingState, action: BookingAction): BookingStat
     case 'SET_PACKAGE':
       return { ...state, selectedPackage: action.payload };
     case 'TOGGLE_ADDON':
+      if (typeof action.payload !== 'string' || action.payload.length === 0) {
+        return state;
+      }
       return {
         ...state,
         selectedAddOns: state.selectedAddOns.includes(action.payload)
@@ -63,7 +91,13 @@ const bookingReducer = (state: BookingState, action: BookingAction): BookingStat
     case 'SET_TIME':
       return { ...state, selectedTime: action.payload };
     case 'SET_CUSTOMER_DETAILS':
-      return { ...state, customerDetails: { ...state.customerDetails, ...action.payload } };
+      return {
+        ...state,
+        customerDetails: {
+          ...state.customerDetails,
+          ...sanitizeCustomerDetailsPayload(action.payload),
+        },
+      };
     case 'RESET_BOOKING':
       return initialState;
     default:
@@ -92,6 +126,7 @@ export const BookingProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const nextStep = () => {
     const currentIndex = steps.indexOf(state.currentStep);
+    if (currentIndex < 0) return;
     if (currentIndex < steps.length - 1) {
       dispatch({ type: 'SET_STEP', payload: steps[currentIndex + 1] });
     }
@@ -99,6 +134,7 @@ export const BookingProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const prevStep = () => {
     const currentIndex = steps.indexOf(state.currentStep);
+    if (currentIndex < 0) return;
     if (currentIndex > 0) {
       dispatch({ type: 'SET_STEP', payload: steps[currentIndex - 1] });
     }

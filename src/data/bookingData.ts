@@ -2,7 +2,8 @@ import type { Vehicle, ServicePackage, AddOn } from '@/types/booking';
 
 export const vehicles: Vehicle[] = [
   {
-    id: 'sedan',
+    id: 'vehicle-sedan',
+    type: 'sedan',
     name: 'Small (Sedan)',
     subtitle: 'From $149',
     price: 149,
@@ -10,7 +11,8 @@ export const vehicles: Vehicle[] = [
     image: '/vehicle-sedan.jpg',
   },
   {
-    id: 'crossover',
+    id: 'vehicle-crossover',
+    type: 'crossover',
     name: 'Medium (Crossover)',
     subtitle: 'From $199',
     price: 199,
@@ -18,7 +20,8 @@ export const vehicles: Vehicle[] = [
     image: '/vehicle-crossover.jpg',
   },
   {
-    id: 'suv',
+    id: 'vehicle-suv',
+    type: 'suv',
     name: 'SUV (Full Size)',
     subtitle: 'From $249',
     price: 249,
@@ -26,7 +29,8 @@ export const vehicles: Vehicle[] = [
     image: '/vehicle-suv.jpg',
   },
   {
-    id: 'luxury',
+    id: 'vehicle-luxury',
+    type: 'luxury',
     name: 'Luxury / Exotic',
     subtitle: 'Custom Quote',
     price: 0,

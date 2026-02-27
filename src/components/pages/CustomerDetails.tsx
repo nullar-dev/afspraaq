@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { CustomerDetails as CustomerDetailsType } from '@/types/booking';
 
+const EMAIL_PATTERN = '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$';
+
 const CustomerDetails: React.FC = () => {
   const { state, dispatch } = useBooking();
   const [focusedField, setFocusedField] = useState<string | null>(null);
@@ -97,6 +99,7 @@ const CustomerDetails: React.FC = () => {
       placeholder: 'john@example.com',
       type: 'email',
       maxLength: 254,
+      pattern: EMAIL_PATTERN,
     },
     {
       id: 'phone',

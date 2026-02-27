@@ -6,6 +6,12 @@ import { Button } from '@/components/ui/button';
 import { useBooking } from '@/context/BookingContext';
 import { vehicles, servicePackages, addOns } from '@/data/bookingData';
 
+const isValidCustomerEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+const isValidCustomerPhone = (phone: string) => {
+  const digits = phone.replace(/\D/g, '');
+  return digits.length >= 7;
+};
+
 const InvestmentSummary: React.FC = () => {
   const { state, nextStep } = useBooking();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -26,7 +32,7 @@ const InvestmentSummary: React.FC = () => {
     // Vehicle
     if (state.selectedVehicle) {
       const vehicle = vehicles.find(v => v.id === state.selectedVehicle);
-      if (vehicle && vehicle.price > 0) {
+      if (vehicle && Number.isFinite(vehicle.price) && vehicle.price >= 0) {
         items.push({
           id: `vehicle-${vehicle.id}`,
           name: vehicle.name,
@@ -66,7 +72,7 @@ const InvestmentSummary: React.FC = () => {
       }
     });
 
-    const taxCents = Math.round(subtotalCents * 0.08);
+    const taxCents = Math.round((subtotalCents * 8) / 100);
     const totalCents = subtotalCents + taxCents;
 
     return { items, subtotalCents, taxCents, totalCents };
@@ -113,10 +119,10 @@ const InvestmentSummary: React.FC = () => {
         return !!state.selectedDate && !!state.selectedTime;
       case 'customer':
         return (
-          state.customerDetails.firstName &&
-          state.customerDetails.lastName &&
-          state.customerDetails.email &&
-          state.customerDetails.phone
+          state.customerDetails.firstName.trim().length > 0 &&
+          state.customerDetails.lastName.trim().length > 0 &&
+          isValidCustomerEmail(state.customerDetails.email) &&
+          isValidCustomerPhone(state.customerDetails.phone)
         );
       default:
         return true;

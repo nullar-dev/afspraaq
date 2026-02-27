@@ -1,3 +1,4 @@
+// Verified with migration 006: no schema shape changes (constraint-only migration).
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export interface Database {

@@ -1,6 +1,16 @@
 import * as Sentry from '@sentry/nextjs';
 
-const SENSITIVE_QUERY_KEYS = ['token', 'access_token', 'refresh_token', 'code', 'otp'];
+const SENSITIVE_QUERY_KEYS = [
+  'token',
+  'access_token',
+  'refresh_token',
+  'code',
+  'otp',
+  'api_key',
+  'password',
+  'secret',
+  'private_key',
+];
 
 const scrubSensitiveData = (event: Sentry.Event) => {
   if (event.request?.headers) {
@@ -20,7 +30,12 @@ const scrubSensitiveData = (event: Sentry.Event) => {
       }
       event.request.url = url.toString();
     } catch {
-      // Leave URL unchanged if parsing fails.
+      let redactedUrl = event.request.url;
+      for (const key of SENSITIVE_QUERY_KEYS) {
+        const pattern = new RegExp(`([?&]${key}=)([^&]*)`, 'gi');
+        redactedUrl = redactedUrl.replace(pattern, '$1[REDACTED]');
+      }
+      event.request.url = redactedUrl;
     }
   }
 

@@ -22,7 +22,7 @@ function SeedState() {
         onClick={() =>
           dispatch({
             type: 'SET_CUSTOMER_DETAILS',
-            payload: { firstName: 'A', lastName: 'B', email: 'x@y.com', phone: '1234567' },
+            payload: { firstName: 'A', lastName: 'B', email: 'x@y.com', phone: '1234567890' },
           })
         }
       >
@@ -69,7 +69,7 @@ function StepControls() {
               firstName: 'Jane',
               lastName: 'Doe',
               email: 'jane@example.com',
-              phone: '1234567',
+              phone: '1234567890',
             },
           })
         }

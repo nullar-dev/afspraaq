@@ -5,6 +5,7 @@ import type { ApiErrorResponse } from '@/types/api';
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 30;
+const RATE_LIMIT_MAX_ENTRIES = 10_000;
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
 const getClientIp = (request: NextRequest) =>
@@ -40,6 +41,23 @@ const errorResponse = (
 
 const checkRateLimit = (key: string) => {
   const now = Date.now();
+
+  // Opportunistic cleanup to prevent unbounded memory growth.
+  for (const [entryKey, entry] of rateLimitStore) {
+    if (entry.resetAt <= now) {
+      rateLimitStore.delete(entryKey);
+    }
+  }
+  if (rateLimitStore.size > RATE_LIMIT_MAX_ENTRIES) {
+    const overflow = rateLimitStore.size - RATE_LIMIT_MAX_ENTRIES;
+    const sortedByExpiry = [...rateLimitStore.entries()].sort(
+      (a, b) => a[1].resetAt - b[1].resetAt
+    );
+    for (const [entryKey] of sortedByExpiry.slice(0, overflow)) {
+      rateLimitStore.delete(entryKey);
+    }
+  }
+
   const current = rateLimitStore.get(key);
   if (!current || current.resetAt <= now) {
     const next = { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS };
@@ -64,6 +82,11 @@ const parseAllowedOrigins = (request: NextRequest) => {
 
   if (configured && configured.length > 0) {
     return new Set(configured);
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    console.error('ALLOWED_ORIGINS is required in production for confirmation endpoint.');
+    return new Set<string>();
   }
 
   const appOrigin = request.nextUrl.origin;

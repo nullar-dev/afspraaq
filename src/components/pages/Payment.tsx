@@ -23,6 +23,7 @@ const Payment: React.FC = () => {
   const { state, dispatch } = useBooking();
   const [showSuccess, setShowSuccess] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [cardType, setCardType] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -98,6 +99,7 @@ const Payment: React.FC = () => {
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
 
+    setSubmitError(null);
     setIsProcessing(true);
     // Animate progress
     progressIntervalRef.current = setInterval(() => {
@@ -113,17 +115,22 @@ const Payment: React.FC = () => {
     // Simulate payment processing
     completionTimeoutRef.current = setTimeout(() => {
       void (async () => {
-        let code = 'GC-PENDING';
+        let code = '';
         try {
           code = await requestConfirmationCode();
         } catch {
-          code = 'GC-PENDING';
+          if (!isMountedRef.current) return;
+          setIsProcessing(false);
+          setProgress(0);
+          setSubmitError('Unable to confirm booking right now. Please try again.');
+          return;
         }
 
         if (!isMountedRef.current) return;
 
         setIsProcessing(false);
         setShowSuccess(true);
+        setSubmitError(null);
         setProgress(0);
         setConfirmationCode(code);
       })();
@@ -149,7 +156,7 @@ const Payment: React.FC = () => {
     const currentYear = now.getFullYear() % 100;
     const currentMonth = now.getMonth() + 1;
     const isValidMonth = Number.isInteger(month) && month >= 1 && month <= 12;
-    const isValidYear = Number.isInteger(year) && yearText?.length === 2;
+    const isValidYear = Number.isInteger(year) && yearText?.length === 2 && year >= 0 && year <= 99;
     const isExpired = year < currentYear || (year === currentYear && month < currentMonth);
     return (
       cardDigits.length === 16 &&
@@ -172,8 +179,7 @@ const Payment: React.FC = () => {
     }
   `;
 
-  // Calculate total
-  const getTotalCents = () => {
+  const subtotalCents = useMemo(() => {
     let totalCents = 0;
 
     // Vehicle base price
@@ -195,7 +201,7 @@ const Payment: React.FC = () => {
     });
 
     return totalCents;
-  };
+  }, [state.selectedVehicle, state.selectedPackage, state.selectedAddOns]);
 
   const getOrderSummary = () => {
     const items = [];
@@ -225,13 +231,13 @@ const Payment: React.FC = () => {
     return items;
   };
 
-  const subtotalCents = getTotalCents();
   const taxCents = Math.round((subtotalCents * 8) / 100);
   const totalCents = subtotalCents + taxCents;
 
   const handleBookAnother = () => {
     dispatch({ type: 'RESET_BOOKING' });
     setShowSuccess(false);
+    setSubmitError(null);
     setPaymentDetails({ cardNumber: '', expiryDate: '', cvv: '', cardholderName: '' });
     router.push('/booking/vehicle');
   };
@@ -394,6 +400,11 @@ const Payment: React.FC = () => {
                 />
               </div>
             </form>
+            {submitError && (
+              <p className="mt-4 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                {submitError}
+              </p>
+            )}
 
             {/* Security Badges */}
             <div className="mt-8 pt-6 border-t border-[#2A2A2A]">

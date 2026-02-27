@@ -9,8 +9,10 @@ import { vehicles } from '@/data/bookingData';
 const VehicleSelection: React.FC = () => {
   const { state, dispatch } = useBooking();
   const [hoveredVehicle, setHoveredVehicle] = useState<string | null>(null);
+  const validVehicleIds = new Set(vehicles.map(vehicle => vehicle.id));
 
   const handleSelectVehicle = (vehicleId: string) => {
+    if (!validVehicleIds.has(vehicleId)) return;
     dispatch({ type: 'SET_VEHICLE', payload: vehicleId });
   };
 
@@ -44,7 +46,15 @@ const VehicleSelection: React.FC = () => {
           return (
             <div
               key={vehicle.id}
+              role="button"
+              tabIndex={0}
               onClick={() => handleSelectVehicle(vehicle.id)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleSelectVehicle(vehicle.id);
+                }
+              }}
               onMouseEnter={() => setHoveredVehicle(vehicle.id)}
               onMouseLeave={() => setHoveredVehicle(null)}
               className={`group relative rounded-2xl overflow-hidden cursor-pointer transition-all duration-500 ${
@@ -165,7 +175,12 @@ const VehicleSelection: React.FC = () => {
             </p>
           </div>
         </div>
-        <button className="w-full sm:w-auto px-5 py-3 rounded-xl border border-[#2A2A2A] text-[#B0B0B0] text-sm font-medium hover:border-gold hover:text-gold hover:bg-gold/5 transition-all duration-300 flex items-center justify-center gap-2 group">
+        <button
+          type="button"
+          disabled
+          title="More details coming soon"
+          className="w-full sm:w-auto px-5 py-3 rounded-xl border border-[#2A2A2A] text-[#B0B0B0] text-sm font-medium opacity-70 cursor-not-allowed flex items-center justify-center gap-2 group"
+        >
           <Info className="w-4 h-4" />
           Learn More
           <ChevronRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />

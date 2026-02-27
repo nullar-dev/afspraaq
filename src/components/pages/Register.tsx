@@ -77,7 +77,7 @@ const Register: React.FC = () => {
     if (formData.password && formData.password !== formData.confirmPassword) {
       nextFieldErrors.confirmPassword = 'Passwords do not match.';
     }
-    if (formData.password && passwordStrength < 2) {
+    if (formData.password && passwordStrength < 3) {
       nextFieldErrors.password = 'Please choose a stronger password.';
     }
 
@@ -363,7 +363,7 @@ const Register: React.FC = () => {
 
           <Button
             type="submit"
-            disabled={state.isLoading || isSubmitting || !agreeToTerms || passwordStrength < 2}
+            disabled={state.isLoading || isSubmitting || !agreeToTerms || passwordStrength < 3}
             className="w-full bg-gold hover:bg-gold-light text-[#0A0A0A] font-bold py-5 sm:py-6 rounded-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-gold disabled:opacity-50 disabled:cursor-not-allowed text-base sm:text-lg"
           >
             {state.isLoading || isSubmitting ? (

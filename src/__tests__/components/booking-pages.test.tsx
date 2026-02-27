@@ -127,9 +127,9 @@ describe('Booking Pages', () => {
     expect((screen.getByLabelText(/phone number/i) as HTMLInputElement).value).toBe('12345(1)');
 
     fireEvent.change(screen.getByLabelText(/zip code/i), {
-      target: { value: '10A0!1-12345' },
+      target: { value: '10001-1234A' },
     });
-    expect((screen.getByLabelText(/zip code/i) as HTMLInputElement).value).toBe('1001-12345');
+    expect((screen.getByLabelText(/zip code/i) as HTMLInputElement).value).toBe('10001-1234');
 
     const longSpecialRequest = 'x'.repeat(700);
     fireEvent.change(screen.getByPlaceholderText(/any specific concerns/i), {
@@ -175,7 +175,7 @@ describe('Booking Pages', () => {
     expect(mockPush).toHaveBeenCalledWith('/booking/vehicle');
   });
 
-  it('prevents submit for expired card and falls back to GC-PENDING on API failure', async () => {
+  it('prevents submit for expired card and shows retryable error on API failure', async () => {
     vi.useFakeTimers();
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network fail')));
     renderWithBooking(<SeededPaymentPage />);
@@ -209,6 +209,7 @@ describe('Booking Pages', () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByText('GC-PENDING')).toBeTruthy();
+    expect(screen.queryByText(/booking confirmed/i)).toBeNull();
+    expect(screen.getByText(/unable to confirm booking right now/i)).toBeTruthy();
   });
 });

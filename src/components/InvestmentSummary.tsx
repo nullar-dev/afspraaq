@@ -8,10 +8,16 @@ import { vehicles, servicePackages, addOns } from '@/data/bookingData';
 
 const MAX_PRICE_DOLLARS = 1_000_000;
 
-const isValidCustomerEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+const isValidCustomerEmail = (email: string) => {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized || normalized.length > 254) return false;
+  return /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/.test(
+    normalized
+  );
+};
 const isValidCustomerPhone = (phone: string) => {
   const digits = phone.replace(/\D/g, '');
-  return digits.length >= 7;
+  return digits.length >= 10 && digits.length <= 15;
 };
 
 const InvestmentSummary: React.FC = () => {

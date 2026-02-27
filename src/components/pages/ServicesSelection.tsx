@@ -8,12 +8,16 @@ import { servicePackages, addOns } from '@/data/bookingData';
 const ServicesSelection: React.FC = () => {
   const { state, dispatch } = useBooking();
   const [expandedFeatures, setExpandedFeatures] = useState<string | null>(null);
+  const validPackageIds = new Set(servicePackages.map(pkg => pkg.id));
+  const validAddOnIds = new Set(addOns.map(addOn => addOn.id));
 
   const handleSelectPackage = (packageId: string) => {
+    if (!validPackageIds.has(packageId)) return;
     dispatch({ type: 'SET_PACKAGE', payload: packageId });
   };
 
   const handleToggleAddOn = (addOnId: string) => {
+    if (!validAddOnIds.has(addOnId)) return;
     dispatch({ type: 'TOGGLE_ADDON', payload: addOnId });
   };
 
@@ -51,7 +55,15 @@ const ServicesSelection: React.FC = () => {
           return (
             <div
               key={pkg.id}
+              role="button"
+              tabIndex={0}
               onClick={() => handleSelectPackage(pkg.id)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleSelectPackage(pkg.id);
+                }
+              }}
               className={`relative rounded-2xl border-2 cursor-pointer transition-all duration-500 overflow-hidden ${
                 isSelected
                   ? 'border-gold bg-gradient-to-r from-gold/10 to-transparent shadow-gold'
@@ -161,7 +173,15 @@ const ServicesSelection: React.FC = () => {
             return (
               <div
                 key={addOn.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => handleToggleAddOn(addOn.id)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleToggleAddOn(addOn.id);
+                  }
+                }}
                 className={`flex items-center justify-between p-4 sm:p-5 rounded-xl border cursor-pointer transition-all duration-300 group ${
                   isSelected
                     ? 'border-gold bg-gold/5 shadow-gold'

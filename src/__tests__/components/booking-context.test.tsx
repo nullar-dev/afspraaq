@@ -85,11 +85,11 @@ describe('BookingContext', () => {
     expect(screen.getByTestId('vehicle').textContent).toBe('none');
 
     fireEvent.click(screen.getByText('go-invalid'));
-    expect(screen.getByTestId('step').textContent).toBe('not-a-step');
+    expect(screen.getByTestId('step').textContent).toBe('vehicle');
     fireEvent.click(screen.getByText('next'));
-    expect(screen.getByTestId('step').textContent).toBe('not-a-step');
+    expect(screen.getByTestId('step').textContent).toBe('services');
     fireEvent.click(screen.getByText('prev'));
-    expect(screen.getByTestId('step').textContent).toBe('not-a-step');
+    expect(screen.getByTestId('step').textContent).toBe('vehicle');
   });
 
   it('throws if useBooking is used without provider', () => {

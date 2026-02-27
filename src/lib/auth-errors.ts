@@ -1,4 +1,8 @@
 export const mapAuthError = (message: string, mode: 'login' | 'register') => {
+  if (!message || typeof message !== 'string') {
+    return 'An error occurred. Please try again.';
+  }
+
   const normalized = message.toLowerCase();
 
   if (normalized.includes('too many requests')) {

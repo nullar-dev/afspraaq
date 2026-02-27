@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GET, POST } from '@/app/api/bookings/confirmation/route';
 
@@ -15,6 +15,10 @@ describe('bookings confirmation route', () => {
     vi.clearAllMocks();
     process.env = { ...originalEnv };
     delete process.env.ALLOWED_ORIGINS;
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('returns 403 when origin is missing or invalid', async () => {
@@ -35,6 +39,29 @@ describe('bookings confirmation route', () => {
     expect(body.error.code).toBe('forbidden_origin');
     expect(body.error.message).toBe('Forbidden');
     expect(body.error.supportCode).toMatch(/^SUP-[A-F0-9]{8}$/);
+  });
+
+  it('fails closed in production when ALLOWED_ORIGINS is missing', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    delete process.env.ALLOWED_ORIGINS;
+
+    mockCreateClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u1' } } }),
+      },
+    });
+
+    const request = new NextRequest('https://nullar.dev/api/bookings/confirmation', {
+      method: 'POST',
+      headers: {
+        origin: 'https://nullar.dev',
+      },
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+    expect(response.status).toBe(403);
+    expect(body.error.code).toBe('forbidden_origin');
   });
 
   it('returns 403 when referer header cannot be parsed', async () => {

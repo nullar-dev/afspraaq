@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import {
   POST,
@@ -27,6 +27,10 @@ describe('auth profile ensure route', () => {
     vi.clearAllMocks();
     delete process.env.ALLOWED_ORIGINS;
     __resetEnsureProfileRateLimitForTests();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('returns 405 for GET', async () => {
@@ -125,6 +129,50 @@ describe('auth profile ensure route', () => {
     const request = new NextRequest('http://localhost:3000/api/auth/profile/ensure', {
       method: 'POST',
       headers: { 'x-requested-with': 'XMLHttpRequest' },
+    });
+    const response = await POST(request);
+    const body = await response.json();
+    expect(response.status).toBe(403);
+    expect(body.error.code).toBe('forbidden_origin');
+  });
+
+  it('allows explicit origin allowlist via ALLOWED_ORIGINS', async () => {
+    process.env.ALLOWED_ORIGINS = 'https://app.example.com,https://admin.example.com';
+    mockUpsert.mockResolvedValue({ error: null });
+    mockCreateClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'u-allowed', email: 'allowed@example.com' } },
+        }),
+      },
+      from: vi.fn(() => ({ upsert: mockUpsert })),
+    });
+
+    const request = new NextRequest('https://app.example.com/api/auth/profile/ensure', {
+      method: 'POST',
+      headers: {
+        origin: 'https://admin.example.com',
+        'x-requested-with': 'XMLHttpRequest',
+      },
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.ok).toBe(true);
+  });
+
+  it('fails closed in production when ALLOWED_ORIGINS is missing', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    delete process.env.ALLOWED_ORIGINS;
+
+    const request = new NextRequest('https://nullar.dev/api/auth/profile/ensure', {
+      method: 'POST',
+      headers: {
+        origin: 'https://nullar.dev',
+        'x-requested-with': 'XMLHttpRequest',
+      },
     });
     const response = await POST(request);
     const body = await response.json();

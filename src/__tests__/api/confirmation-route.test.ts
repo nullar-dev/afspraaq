@@ -45,6 +45,22 @@ describe('bookings confirmation route', () => {
     expect(body.error.supportCode).toMatch(/^SUP-[A-F0-9]{8}$/);
   });
 
+  it('returns 403 when browser request header is missing', async () => {
+    const request = new NextRequest('http://localhost:3000/api/bookings/confirmation', {
+      method: 'POST',
+      headers: {
+        origin: 'http://localhost:3000',
+      },
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error.code).toBe('forbidden_request');
+    expect(body.error.message).toBe('Forbidden');
+  });
+
   it('fails closed in production when ALLOWED_ORIGINS is missing', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     delete process.env.ALLOWED_ORIGINS;

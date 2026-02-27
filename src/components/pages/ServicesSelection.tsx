@@ -107,7 +107,7 @@ const ServicesSelection: React.FC = () => {
                     >
                       {pkg.features.map((feature, idx) => (
                         <div
-                          key={idx}
+                          key={`${pkg.id}-feature-${feature}-${idx}`}
                           className="flex items-center gap-2.5 text-sm text-[#B0B0B0] group/item"
                           style={{ animationDelay: `${idx * 50}ms` }}
                         >

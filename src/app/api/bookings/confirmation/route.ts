@@ -8,6 +8,11 @@ const RATE_LIMIT_MAX_REQUESTS = 30;
 const RATE_LIMIT_MAX_ENTRIES = 10_000;
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
+// Test helper to keep unit tests isolated from shared module state.
+export const __resetRateLimitStoreForTests = () => {
+  rateLimitStore.clear();
+};
+
 const getClientIp = (request: NextRequest) =>
   request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
   request.headers.get('x-real-ip') ??

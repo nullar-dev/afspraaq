@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Check, Info, ChevronRight, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 import { useBooking } from '@/context/BookingContext';
@@ -9,7 +9,7 @@ import { vehicles } from '@/data/bookingData';
 const VehicleSelection: React.FC = () => {
   const { state, dispatch } = useBooking();
   const [hoveredVehicle, setHoveredVehicle] = useState<string | null>(null);
-  const validVehicleIds = new Set(vehicles.map(vehicle => vehicle.id));
+  const validVehicleIds = useMemo(() => new Set(vehicles.map(vehicle => vehicle.id)), []);
 
   const handleSelectVehicle = (vehicleId: string) => {
     if (!validVehicleIds.has(vehicleId)) return;

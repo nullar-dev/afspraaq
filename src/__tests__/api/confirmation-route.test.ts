@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
-import { GET, POST } from '@/app/api/bookings/confirmation/route';
+import { GET, POST, __resetRateLimitStoreForTests } from '@/app/api/bookings/confirmation/route';
 
 const mockCreateClient = vi.fn();
 
@@ -19,6 +19,7 @@ describe('bookings confirmation route', () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    __resetRateLimitStoreForTests();
   });
 
   it('returns 403 when origin is missing or invalid', async () => {

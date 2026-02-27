@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/nextjs';
 
-const SENSITIVE_QUERY_KEYS = [
+const SENSITIVE_QUERY_KEYS: readonly string[] = [
   'token',
   'access_token',
   'refresh_token',
@@ -32,7 +32,8 @@ const scrubSensitiveData = (event: Sentry.Event) => {
     } catch {
       let redactedUrl = event.request.url;
       for (const key of SENSITIVE_QUERY_KEYS) {
-        const pattern = new RegExp(`([?&]${key}=)([^&]*)`, 'gi');
+        const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const pattern = new RegExp(`([?&]${escapedKey}=)([^&]*)`, 'gi');
         redactedUrl = redactedUrl.replace(pattern, '$1[REDACTED]');
       }
       event.request.url = redactedUrl;

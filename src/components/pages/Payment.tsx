@@ -54,10 +54,10 @@ const Payment: React.FC = () => {
     if (field === 'cardNumber') {
       const cleanValue = value.replace(/\s/g, '').replace(/\D/g, '');
 
-      // Detect card type
+      // Detect card type from known issuer prefixes.
       if (cleanValue.startsWith('4')) setCardType('visa');
-      else if (cleanValue.startsWith('5')) setCardType('mastercard');
-      else if (cleanValue.startsWith('3')) setCardType('amex');
+      else if (/^5[1-5]/.test(cleanValue)) setCardType('mastercard');
+      else if (/^3[47]/.test(cleanValue)) setCardType('amex');
       else setCardType(null);
 
       value = cleanValue
@@ -159,7 +159,7 @@ const Payment: React.FC = () => {
     const isValidYear = Number.isInteger(year) && yearText?.length === 2 && year >= 0 && year <= 99;
     const isExpired = year < currentYear || (year === currentYear && month < currentMonth);
     return (
-      cardDigits.length === 16 &&
+      (cardDigits.length === 16 || (cardType === 'amex' && cardDigits.length === 15)) &&
       expiryDate.length === 5 &&
       isValidMonth &&
       isValidYear &&

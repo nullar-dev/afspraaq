@@ -202,6 +202,9 @@ describe('bookings confirmation route', () => {
     let response: Awaited<ReturnType<typeof POST>> | null = null;
     for (let i = 0; i < 31; i += 1) {
       response = await POST(request);
+      if (i < 30) {
+        expect(response.status).toBe(200);
+      }
     }
 
     expect(response).not.toBeNull();

@@ -9,6 +9,7 @@ const RATE_LIMIT_MAX_ENTRIES = 10_000;
 const RATE_LIMIT_CLEANUP_EVERY_REQUESTS = 50;
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 let requestsSinceCleanup = 0;
+let hasLoggedMissingAllowedOrigins = false;
 
 // Test helper to keep unit tests isolated from shared module state.
 export const __resetRateLimitStoreForTests = () => {
@@ -56,11 +57,13 @@ const checkRateLimit = (key: string) => {
     }
     if (rateLimitStore.size > RATE_LIMIT_MAX_ENTRIES) {
       const overflow = rateLimitStore.size - RATE_LIMIT_MAX_ENTRIES;
-      const sortedByExpiry = [...rateLimitStore.entries()].sort(
-        (a, b) => a[1].resetAt - b[1].resetAt
-      );
-      for (const [entryKey] of sortedByExpiry.slice(0, overflow)) {
+      let removed = 0;
+      for (const [entryKey] of rateLimitStore) {
         rateLimitStore.delete(entryKey);
+        removed += 1;
+        if (removed >= overflow) {
+          break;
+        }
       }
     }
   }
@@ -92,7 +95,10 @@ const parseAllowedOrigins = (request: NextRequest) => {
   }
 
   if (process.env.NODE_ENV === 'production') {
-    console.error('ALLOWED_ORIGINS is required in production for confirmation endpoint.');
+    if (!hasLoggedMissingAllowedOrigins) {
+      console.error('ALLOWED_ORIGINS is required in production for confirmation endpoint.');
+      hasLoggedMissingAllowedOrigins = true;
+    }
     return new Set<string>();
   }
 

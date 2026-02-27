@@ -9,6 +9,7 @@ describe('health route', () => {
     expect(response.status).toBe(200);
     expect(body.status).toBe('ok');
     expect(typeof body.timestamp).toBe('string');
+    expect(body.config).toEqual({ allowedOriginsConfigured: true });
     expect(response.headers.get('cache-control')).toBe('no-store');
   });
 });

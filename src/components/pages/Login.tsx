@@ -44,7 +44,7 @@ const Login: React.FC = () => {
 
   useEffect(() => {
     try {
-      const rememberedEmail = localStorage.getItem('rememberedEmail');
+      const rememberedEmail = sessionStorage.getItem('rememberedEmail');
       if (rememberedEmail) {
         setEmail(rememberedEmail);
         setRememberMe(true);
@@ -76,9 +76,9 @@ const Login: React.FC = () => {
       await login(email, password);
       try {
         if (rememberMe) {
-          localStorage.setItem('rememberedEmail', email.trim().toLowerCase());
+          sessionStorage.setItem('rememberedEmail', email.trim().toLowerCase());
         } else {
-          localStorage.removeItem('rememberedEmail');
+          sessionStorage.removeItem('rememberedEmail');
         }
       } catch {
         // Storage can be unavailable in some browser privacy modes.

@@ -52,7 +52,12 @@ function LoginForm() {
       return;
     }
 
-    router.push('/');
+    const redirectParam = searchParams.get('redirect');
+    const safeRedirect =
+      redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('//')
+        ? redirectParam
+        : '/';
+    router.push(safeRedirect);
     router.refresh();
   };
 

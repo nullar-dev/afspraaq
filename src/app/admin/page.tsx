@@ -8,7 +8,10 @@ export default async function AdminPage() {
   try {
     auth = await getAdminAuthResult();
   } catch (error) {
-    console.error('Admin auth check failed', error);
+    console.error(
+      'Admin auth check failed:',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
     redirect('/login?redirect=/admin');
     return null;
   }

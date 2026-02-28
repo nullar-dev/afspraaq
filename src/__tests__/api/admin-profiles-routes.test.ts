@@ -5,6 +5,7 @@ import { GET as getProfile } from '@/app/api/admin/profiles/[id]/route';
 
 const mockGetAdminAuthResult = vi.fn();
 const mockCreateClient = vi.fn();
+const MAX_IDS_FILTER = 100;
 
 vi.mock('@/lib/admin-auth', () => ({
   getAdminAuthResult: () => mockGetAdminAuthResult(),
@@ -122,7 +123,7 @@ describe('admin profiles routes', () => {
       from: fromMock,
     });
 
-    const ids = Array.from({ length: 101 }, (_, index) => `u${index}`).join(',');
+    const ids = Array.from({ length: MAX_IDS_FILTER + 1 }, (_, index) => `u${index}`).join(',');
     const request = new NextRequest(`http://localhost:3000/api/admin/profiles?ids=${ids}`);
     const response = await listProfiles(request);
     const body = await response.json();
@@ -217,9 +218,12 @@ describe('admin profiles routes', () => {
       from: vi.fn(() => ({ select: mockSelect })),
     });
 
-    const response = await getProfile(new Request('http://localhost:3000/api/admin/profiles/u1'), {
-      params: Promise.resolve({ id: 'u1' }),
-    });
+    const response = await getProfile(
+      new NextRequest('http://localhost:3000/api/admin/profiles/u1'),
+      {
+        params: Promise.resolve({ id: 'u1' }),
+      }
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -230,9 +234,12 @@ describe('admin profiles routes', () => {
   it('returns 503 on profile by id when auth is unavailable', async () => {
     mockGetAdminAuthResult.mockResolvedValue({ status: 'unavailable' });
 
-    const response = await getProfile(new Request('http://localhost:3000/api/admin/profiles/u1'), {
-      params: Promise.resolve({ id: 'u1' }),
-    });
+    const response = await getProfile(
+      new NextRequest('http://localhost:3000/api/admin/profiles/u1'),
+      {
+        params: Promise.resolve({ id: 'u1' }),
+      }
+    );
     const body = await response.json();
 
     expect(response.status).toBe(503);
@@ -255,9 +262,12 @@ describe('admin profiles routes', () => {
       from: vi.fn(() => ({ select: mockSelect })),
     });
 
-    const response = await getProfile(new Request('http://localhost:3000/api/admin/profiles/u1'), {
-      params: Promise.resolve({ id: 'u1' }),
-    });
+    const response = await getProfile(
+      new NextRequest('http://localhost:3000/api/admin/profiles/u1'),
+      {
+        params: Promise.resolve({ id: 'u1' }),
+      }
+    );
     const body = await response.json();
 
     expect(response.status).toBe(500);
@@ -271,9 +281,12 @@ describe('admin profiles routes', () => {
     });
     mockCreateClient.mockResolvedValue(null);
 
-    const response = await getProfile(new Request('http://localhost:3000/api/admin/profiles/u1'), {
-      params: Promise.resolve({ id: 'u1' }),
-    });
+    const response = await getProfile(
+      new NextRequest('http://localhost:3000/api/admin/profiles/u1'),
+      {
+        params: Promise.resolve({ id: 'u1' }),
+      }
+    );
     const body = await response.json();
 
     expect(response.status).toBe(503);
@@ -296,9 +309,12 @@ describe('admin profiles routes', () => {
       from: vi.fn(() => ({ select: mockSelect })),
     });
 
-    const response = await getProfile(new Request('http://localhost:3000/api/admin/profiles/u1'), {
-      params: Promise.resolve({ id: 'u1' }),
-    });
+    const response = await getProfile(
+      new NextRequest('http://localhost:3000/api/admin/profiles/u1'),
+      {
+        params: Promise.resolve({ id: 'u1' }),
+      }
+    );
     const body = await response.json();
 
     expect(response.status).toBe(404);

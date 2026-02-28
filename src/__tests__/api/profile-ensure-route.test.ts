@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { NextRequest } from 'next/server';
 import {
   POST,
@@ -14,8 +14,8 @@ vi.mock('@/utils/supabase/server', () => ({
 }));
 
 describe('auth profile ensure route', () => {
-  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
-  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+  let consoleErrorSpy: MockInstance;
+  let consoleWarnSpy: MockInstance;
 
   const makeRequest = (url = 'http://localhost:3000/api/auth/profile/ensure') =>
     new NextRequest(url, {

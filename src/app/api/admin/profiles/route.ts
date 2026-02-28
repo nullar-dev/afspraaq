@@ -3,6 +3,7 @@ import { getAdminAuthResult } from '@/lib/admin-auth';
 import { createClient } from '@/utils/supabase/server';
 
 const ALLOWED_SORT_FIELDS = new Set(['id', 'email', 'role', 'created_at', 'updated_at']);
+const MAX_IDS_FILTER = 100;
 
 const json = (body: unknown, status = 200) =>
   NextResponse.json(body, {
@@ -49,6 +50,17 @@ export async function GET(request: NextRequest) {
       .split(',')
       .map(value => value.trim())
       .filter(Boolean);
+    if (ids.length > MAX_IDS_FILTER) {
+      return json(
+        {
+          error: {
+            code: 'too_many_ids',
+            message: `Maximum ${MAX_IDS_FILTER} ids are allowed per request`,
+          },
+        },
+        400
+      );
+    }
     const { data, error } = await supabase
       .from('profiles')
       .select('id, email, role, created_at, updated_at')

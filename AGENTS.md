@@ -8,7 +8,7 @@
 - API handlers are in `src/app/api/**/route.ts`.
 - Tests are split by type under `src/__tests__/unit`, `src/__tests__/components`, `src/__tests__/api`, and `src/__tests__/e2e`.
 - Database artifacts are in `supabase/migrations/*.sql`; operational migration runner is `scripts/run-migrations.sh`.
-- CI/CD workflows are in `.github/workflows/` (`ci-cd.yml`, `release-migrate-deploy.yml`).
+- CI/CD workflows are in `.github/workflows/` (`ci-cd.yml`, `release-migrate-deploy.yml`, `e2e-staging.yml`).
 
 ## Build, Test, and Development Commands
 
@@ -17,6 +17,8 @@
 - `pnpm test`: full Vitest suite.
 - `pnpm run test:coverage`: coverage run (CI threshold is 80%+).
 - `pnpm playwright test src/__tests__/e2e`: E2E checks.
+- `E2E_MODE=production_smoke pnpm playwright test src/__tests__/e2e`: non-mutating smoke lane.
+- `E2E_MODE=staging_full pnpm playwright test src/__tests__/e2e`: full mutating staging lane.
 - Stack baseline: **Node 24.x**, **pnpm 10.x**.
 
 ## Coding Style & Naming Conventions
@@ -28,15 +30,19 @@
 
 ## Testing Guidelines
 
-- Keep tests close to behavior risks: auth flows, booking transitions, API security checks, migration integrity.
-- Add or update tests whenever behavior changes.
+- Keep tests close to behavior risks: auth/access/session/logout flows, API security checks, migration integrity.
+- Add or update tests for every behavior change. No feature/bugfix is complete without test updates.
+- Minimum required by change type:
+  - UI/state logic: unit + component tests.
+  - API/security/auth: API tests plus unit coverage for helper logic.
+  - Route/session/access control changes: E2E updates in the correct lane.
 - Before push, run at minimum: `pnpm lint && pnpm typecheck && pnpm test && pnpm run test:coverage`.
-- Run E2E for routing/auth/UI-critical changes.
+- Run E2E for routing/auth/UI-critical changes and capture output evidence.
 
 ## E2E Environment Policy (Security-First)
 
 - Use a split model for maximum bug discovery with low operational risk:
-- **Staging/Pre-Prod (private):** run full mutating E2E, including auth/session/logout, role checks, and ephemeral test user setup/teardown.
+- **Staging/Pre-Prod (private):** run full mutating E2E, including auth/session/logout, role checks, and ephemeral test user setup/teardown (`e2e-staging.yml`).
 - **Production:** run non-mutating smoke checks only (availability, safe redirects, basic auth page rendering, critical headers).
 - Never run destructive or role-mutating E2E flows directly against production.
 - For admin E2E, prefer ephemeral admin users created per run and removed in teardown; do not rely on long-lived static admin credentials.
@@ -55,8 +61,18 @@
 - Always create a new branch; never push directly to `main`.
 - Use clear commit prefixes seen in history: `fix:`, `feat:`, `test:`, `fix(ci):`.
 - Ensure pre-commit hook (`.githooks/pre-commit`) and full test suite pass before pushing.
-- Open a PR for every mainline change; include summary, risk/rollback notes, and test evidence.
+- Open a PR for every mainline change; include summary, risk/rollback notes, and concrete test evidence (commands + results).
 - If user request does not explicitly mention PR creation, ask before opening one.
+
+## Definition of Done (Mandatory)
+
+- Code compiles and passes: lint, typecheck, unit/component/API tests, and coverage gate.
+- Correct E2E lane is updated and executed:
+  - `production_smoke` for safe checks.
+  - `staging_full` for mutating auth/access/session/admin checks.
+- Supabase schema changes include new append-only migration files.
+- Migration/type drift expectations are satisfied (`src/types/supabase.generated.ts` updated when required).
+- No unresolved warnings/errors in test output relevant to the changed scope.
 
 ## Security & Configuration Notes
 

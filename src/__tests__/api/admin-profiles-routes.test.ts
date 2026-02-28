@@ -111,6 +111,27 @@ describe('admin profiles routes', () => {
     expect(body.data).toHaveLength(1);
   });
 
+  it('returns 400 when ids filter exceeds maximum', async () => {
+    mockGetAdminAuthResult.mockResolvedValue({
+      status: 'ok',
+      user: { id: 'admin-1', email: 'admin@example.com', role: 'admin' },
+    });
+
+    const fromMock = vi.fn();
+    mockCreateClient.mockResolvedValue({
+      from: fromMock,
+    });
+
+    const ids = Array.from({ length: 101 }, (_, index) => `u${index}`).join(',');
+    const request = new NextRequest(`http://localhost:3000/api/admin/profiles?ids=${ids}`);
+    const response = await listProfiles(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error.code).toBe('too_many_ids');
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
   it('returns 500 when ids query fails', async () => {
     mockGetAdminAuthResult.mockResolvedValue({
       status: 'ok',

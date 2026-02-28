@@ -36,8 +36,8 @@ describe('auth profile ensure route', () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
-    consoleErrorSpy.mockRestore();
-    consoleWarnSpy.mockRestore();
+    consoleErrorSpy?.mockRestore();
+    consoleWarnSpy?.mockRestore();
   });
 
   it('returns 405 for GET', async () => {

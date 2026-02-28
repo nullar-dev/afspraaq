@@ -52,4 +52,13 @@ describe('admin page guard', () => {
     expect(mockRedirect).not.toHaveBeenCalled();
     expect(element).toBeTruthy();
   });
+
+  it('redirects to login when auth check throws', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockGetAdminAuthResult.mockRejectedValue(new Error('db down'));
+    const { default: AdminPage } = await import('@/app/admin/page');
+    await AdminPage();
+    expect(mockRedirect).toHaveBeenCalledWith('/login?redirect=/admin');
+    consoleErrorSpy.mockRestore();
+  });
 });

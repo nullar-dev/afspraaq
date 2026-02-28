@@ -1,6 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const e2eMode = process.env.E2E_MODE || 'all';
+const baseURL = process.env.E2E_BASE_URL || 'http://localhost:3000';
+const isLocalBaseURL = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(baseURL);
 const testMatch =
   e2eMode === 'production_smoke'
     ? ['**/*.production.test.ts']
@@ -33,7 +35,7 @@ const config = defineConfig({
   // Base settings
   use: {
     // Base URL for tests
-    baseURL: process.env.E2E_BASE_URL || 'http://localhost:3000',
+    baseURL,
 
     // Trace settings
     trace: process.env.PLAYWRIGHT_TRACE || 'on-first-retry',
@@ -71,19 +73,22 @@ const config = defineConfig({
   ],
 
   // Web server configuration
-  webServer: {
-    // Command to start the production server (build first, then start)
-    command: process.env.E2E_START_COMMAND || 'pnpm run build && pnpm run start',
+  // Only manage a web server for local-host test targets.
+  webServer: isLocalBaseURL
+    ? {
+        // Command to start the production server (build first, then start)
+        command: process.env.E2E_START_COMMAND || 'pnpm run build && pnpm run start',
 
-    // URL to check
-    url: process.env.E2E_BASE_URL || 'http://localhost:3000',
+        // URL to check
+        url: baseURL,
 
-    // Use a fresh server by default to avoid stale builds in local runs.
-    reuseExistingServer: process.env.E2E_REUSE_SERVER === 'true' && !process.env.CI,
+        // Use a fresh server by default to avoid stale builds in local runs.
+        reuseExistingServer: process.env.E2E_REUSE_SERVER === 'true' && !process.env.CI,
 
-    // Timeout (5 minutes to account for build + test)
-    timeout: parseInt(process.env.E2E_TIMEOUT_MS || '300000', 10) || 300000,
-  },
+        // Timeout (5 minutes to account for build + test)
+        timeout: parseInt(process.env.E2E_TIMEOUT_MS || '300000', 10) || 300000,
+      }
+    : undefined,
 });
 
 export default config;

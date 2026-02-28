@@ -118,6 +118,22 @@ describe('Login Page', () => {
     });
   });
 
+  it('shows email verification guidance when account is not confirmed', async () => {
+    mockLogin.mockRejectedValueOnce(new Error('Please verify your email before signing in.'));
+
+    const { default: LoginPage } = await import('../../app/login/page');
+    const user = userEvent.setup();
+    render(<LoginPage />);
+
+    await user.type(screen.getByLabelText(/email address/i), 'unconfirmed@example.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'password123');
+    await user.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/please verify your email before signing in/i)).toBeTruthy();
+    });
+  });
+
   it('shows field validation errors when email/password are missing', async () => {
     const { default: LoginPage } = await import('../../app/login/page');
     const { container } = render(<LoginPage />);

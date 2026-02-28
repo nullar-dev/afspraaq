@@ -348,6 +348,51 @@ describe('AuthContext', () => {
     });
   });
 
+  it('retries remote sign-out once and still clears local auth state', async () => {
+    const mockSignOut = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('temporary network issue'))
+      .mockResolvedValueOnce({ error: null });
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    mockGetSupabaseClient.mockReturnValue({
+      auth: {
+        getSession: vi.fn().mockResolvedValue({ data: { session: { expires_at: null } } }),
+        getUser: vi.fn().mockResolvedValue({
+          data: {
+            user: { id: 'u-retry', email: 'retry@example.com', user_metadata: { first_name: 'R' } },
+          },
+        }),
+        signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
+        signUp: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+        signOut: mockSignOut,
+        refreshSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+        onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
+      },
+    });
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-state').textContent).toBe('yes');
+    });
+
+    fireEvent.click(screen.getByText('logout'));
+
+    await waitFor(() => {
+      expect(mockSignOut).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId('auth-state').textContent).toBe('no');
+    });
+
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
   it('shows session warning for near-expiry callback and clears auth state on SIGNED_OUT', async () => {
     let authCallback:
       | ((

@@ -318,12 +318,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = async () => {
     if (!supabase) return;
     clearSessionTimers();
+    let firstError: unknown = null;
     try {
       await supabase.auth.signOut();
-    } catch {
-      // Ensure local auth state is always cleared.
+    } catch (error) {
+      firstError = error;
+      const message = error instanceof Error ? error.message : 'unknown';
+      console.warn('Primary sign-out request failed; retrying once', { message });
+
+      try {
+        await supabase.auth.signOut();
+      } catch (retryError) {
+        const retryMessage = retryError instanceof Error ? retryError.message : 'unknown';
+        console.error('Sign-out retry failed', { message: retryMessage });
+      }
     } finally {
       setState({ ...initialState, isLoading: false });
+      if (firstError) {
+        // Ensure auth-dependent cached views do not survive failed remote sign-out.
+        try {
+          sessionStorage.removeItem('rememberedEmail');
+        } catch {
+          // Storage can be unavailable in privacy mode.
+        }
+      }
     }
   };
 

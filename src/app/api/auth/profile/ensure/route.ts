@@ -118,7 +118,6 @@ export async function POST(request: NextRequest) {
     {
       id: user.id,
       email: normalizedEmail || null,
-      role: 'user',
     },
     { onConflict: 'id' }
   );

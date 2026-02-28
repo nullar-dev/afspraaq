@@ -11,40 +11,23 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  preflight-config:
-    name: Preflight Configuration Check
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Validate required secrets
-        env:
-          STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
-          PRODUCTION_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
-        run: |
-          set -euo pipefail
-          missing=0
-          if [[ -z "${STAGING_DATABASE_URL}" ]]; then
-            echo "Missing required secret: STAGING_DATABASE_URL"
-            missing=1
-          fi
-          if [[ -z "${PRODUCTION_DATABASE_URL}" ]]; then
-            echo "Missing required secret: PRODUCTION_DATABASE_URL"
-            missing=1
-          fi
-          if [[ "${missing}" -ne 0 ]]; then
-            echo "Required secrets are missing. Configure GitHub Environments before running release workflow."
-            exit 1
-          fi
-
   migrate-staging:
     name: Migrate Staging DB
     runs-on: [self-hosted, coolify-private]
-    needs: preflight-config
     environment: staging
     permissions:
       contents: read
     steps:
+      - name: Validate staging secret
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${DATABASE_URL}" ]]; then
+            echo "Missing required staging secret: STAGING_DATABASE_URL"
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v6.0.2
 
@@ -75,6 +58,16 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Validate production secret
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${DATABASE_URL}" ]]; then
+            echo "Missing required production secret: PRODUCTION_DATABASE_URL"
+            exit 1
+          fi
+
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 

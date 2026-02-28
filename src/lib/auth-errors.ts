@@ -1,25 +1,39 @@
 export const mapAuthError = (message: string, mode: 'login' | 'register') => {
   if (!message || typeof message !== 'string') {
-    return 'An error occurred. Please try again.';
+    return mode === 'login'
+      ? 'Unable to sign in right now. Please try again later.'
+      : 'Unable to create account. Please try again later.';
   }
 
   const normalized = message.toLowerCase();
 
-  if (normalized.includes('too many requests')) {
+  if (
+    normalized.includes('too many requests') ||
+    normalized.includes('too many attempts') ||
+    normalized.includes('rate limit')
+  ) {
     return 'Too many attempts. Please wait a moment and try again.';
   }
 
   if (mode === 'login') {
     if (
-      normalized.includes('invalid login credentials') ||
-      normalized.includes('invalid credentials')
+      normalized.includes('email_not_confirmed') ||
+      normalized.includes('email not confirmed') ||
+      normalized.includes('not confirmed')
     ) {
-      return 'Invalid email or password. Please try again.';
+      return 'Please verify your email before signing in.';
     }
-    return 'Unable to sign in. Please try again.';
+    if (
+      normalized.includes('invalid login credentials') ||
+      normalized.includes('invalid credentials') ||
+      normalized.includes('invalid email or password')
+    ) {
+      return 'Invalid email or password.';
+    }
+    return 'Unable to sign in right now. Please try again later.';
   }
 
-  if (normalized.includes('password')) {
+  if (normalized.includes('password does not meet') || normalized.includes('password')) {
     return 'Password does not meet requirements.';
   }
 

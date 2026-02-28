@@ -73,7 +73,7 @@ describe('auth profile ensure route', () => {
     expect(response.status).toBe(200);
     expect(body.ok).toBe(true);
     expect(mockUpsert).toHaveBeenCalledWith(
-      { id: 'u1', email: 'user@example.com', role: 'user' },
+      { id: 'u1', email: 'user@example.com' },
       { onConflict: 'id' }
     );
   });
@@ -91,10 +91,7 @@ describe('auth profile ensure route', () => {
 
     const response = await POST(makeRequest());
     expect(response.status).toBe(200);
-    expect(mockUpsert).toHaveBeenCalledWith(
-      { id: 'u2', email: null, role: 'user' },
-      { onConflict: 'id' }
-    );
+    expect(mockUpsert).toHaveBeenCalledWith({ id: 'u2', email: null }, { onConflict: 'id' });
   });
 
   it('returns 500 when profile upsert fails', async () => {

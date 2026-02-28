@@ -5,6 +5,7 @@ import { Mail, Lock, Eye, EyeOff, ArrowRight, Check, Loader2, User, Sparkles } f
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { mapAuthError } from '@/lib/auth-errors';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -32,20 +33,13 @@ const Register: React.FC = () => {
   );
 
   const toSafeRegisterError = (err: unknown) => {
-    if (!(err instanceof Error)) {
-      return 'Unable to create account. Please try again later.';
-    }
-    const message = err.message.toLowerCase();
+    if (!(err instanceof Error)) return 'Unable to create account. Please try again later.';
 
-    if (message.includes('too many attempts')) {
-      return 'Too many attempts. Please wait a moment and try again.';
+    const mapped = mapAuthError(err.message, 'register');
+    if (mapped === 'Unable to create account. Please try again later.') {
+      return `${mapped} If you already have an account, sign in or reset your password.`;
     }
-    if (message.includes('password does not meet')) {
-      return 'Password does not meet requirements.';
-    }
-
-    // Prevent account enumeration and raw upstream error disclosure.
-    return 'Unable to create account. Please try again later.';
+    return mapped;
   };
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {

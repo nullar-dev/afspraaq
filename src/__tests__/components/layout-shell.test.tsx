@@ -4,7 +4,7 @@ import BookingLayout from '@/app/booking/layout';
 import BookingStepper from '@/components/BookingStepper';
 import Header from '@/components/Header';
 import InvestmentSummary from '@/components/InvestmentSummary';
-import { BookingProvider } from '@/context/BookingContext';
+import { BookingProvider, useBooking } from '@/context/BookingContext';
 
 const mockPush = vi.fn();
 const mockRefresh = vi.fn();
@@ -15,6 +15,7 @@ vi.mock('next/navigation', () => ({
     push: mockPush,
     refresh: mockRefresh,
   }),
+  usePathname: () => '/booking/vehicle',
 }));
 
 vi.mock('@/components/ui/dropdown-menu', () => ({
@@ -92,5 +93,27 @@ describe('Booking shell components', () => {
 
     expect(screen.getByText(/booking process/i)).toBeTruthy();
     expect(screen.getByText(/total investment/i)).toBeTruthy();
+  });
+
+  it('navigates to the next booking route when proceed is clicked', () => {
+    function SeedVehicle() {
+      const { dispatch } = useBooking();
+      return (
+        <button onClick={() => dispatch({ type: 'SET_VEHICLE', payload: 'vehicle-sedan' })}>
+          seed-vehicle
+        </button>
+      );
+    }
+
+    render(
+      <BookingLayout>
+        <SeedVehicle />
+      </BookingLayout>
+    );
+
+    fireEvent.click(screen.getByText('seed-vehicle'));
+    fireEvent.click(screen.getByRole('button', { name: /proceed to services/i }));
+
+    expect(mockPush).toHaveBeenCalledWith('/booking/services');
   });
 });

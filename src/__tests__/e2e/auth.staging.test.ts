@@ -27,7 +27,8 @@ test.describe('Staging real auth flows', () => {
     await page.getByLabel(/email address/i).fill(email);
     await page.getByLabel(/^password$/i).fill(registerPassword);
     await page.getByLabel(/confirm password/i).fill(registerPassword);
-    await page.getByRole('checkbox', { name: /i agree to/i }).check();
+    await page.getByText(/i agree to the terms and privacy policy/i).click();
+    await expect(page.getByRole('checkbox', { name: /i agree to/i })).toBeChecked();
     await page.getByRole('button', { name: /create account/i }).click();
 
     await expect(page).toHaveURL(/\/(login|booking\/vehicle)(\?.*)?$/);

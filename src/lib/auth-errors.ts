@@ -16,11 +16,7 @@ export const mapAuthError = (message: string, mode: 'login' | 'register') => {
   }
 
   if (mode === 'login') {
-    if (
-      normalized.includes('email_not_confirmed') ||
-      normalized.includes('email not confirmed') ||
-      normalized.includes('not confirmed')
-    ) {
+    if (normalized.includes('email_not_confirmed') || normalized.includes('email not confirmed')) {
       return 'Please verify your email before signing in.';
     }
     if (

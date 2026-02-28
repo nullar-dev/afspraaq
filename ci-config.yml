@@ -162,18 +162,6 @@ build:
     compression_level: 6
 
 # -----------------------------------------------------------------------------
-# SENTRY SETTINGS
-# -----------------------------------------------------------------------------
-sentry:
-  # Performance monitoring sample rates (0.0 - 1.0)
-  traces_sample_rate: 0.1
-
-  # Session replay settings
-  replays:
-    session_sample_rate: 0.1
-    error_sample_rate: 1.0
-
-# -----------------------------------------------------------------------------
 # DEPENDABOT SETTINGS
 # -----------------------------------------------------------------------------
 dependabot:

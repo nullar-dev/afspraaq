@@ -15,12 +15,14 @@ const getRedirectUrl = (location: string | null) => {
 
 describe('proxy middleware', () => {
   const originalEnv = process.env;
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     process.env = { ...originalEnv };
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
   it('redirects protected routes to /login when Supabase env is unavailable', async () => {
@@ -101,6 +103,7 @@ describe('proxy middleware', () => {
     expect(response.status).toBe(307);
     expect(redirectUrl.pathname).toBe('/login');
     expect(redirectUrl.searchParams.get('redirect')).toBe('/booking/vehicle');
+    expect(consoleWarnSpy).toHaveBeenCalled();
   });
 
   it('redirects to /login when getUser resolves with null user', async () => {
@@ -183,5 +186,28 @@ describe('proxy middleware', () => {
     expect(response.status).toBe(307);
     expect(redirectUrl.pathname).toBe('/login');
     expect(redirectUrl.searchParams.get('redirect')).toBe('/booking/payment');
+  });
+
+  it('preserves /admin as safe redirect target for unauthenticated requests', async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://project.supabase.co';
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';
+
+    mockCreateServerClient.mockReturnValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
+      },
+    });
+
+    const request = new NextRequest('http://localhost:3000/admin');
+    const response = await proxy(request);
+    const redirectUrl = getRedirectUrl(response.headers.get('location'));
+
+    expect(response.status).toBe(307);
+    expect(redirectUrl.pathname).toBe('/login');
+    expect(redirectUrl.searchParams.get('redirect')).toBe('/admin');
+  });
+
+  afterEach(() => {
+    consoleWarnSpy.mockRestore();
   });
 });

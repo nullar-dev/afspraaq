@@ -1,13 +1,28 @@
 import React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 
 const mockGetSupabaseClient = vi.fn();
+const mockFetchWithTimeout = vi.fn();
 
 vi.mock('@/utils/supabase/client', () => ({
   getSupabaseClient: () => mockGetSupabaseClient(),
 }));
+
+vi.mock('@/lib/http', () => ({
+  fetchWithTimeout: (...args: unknown[]) => mockFetchWithTimeout(...args),
+}));
+
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+};
 
 function AuthHarness() {
   const { state, login, register, logout, loginWithOAuth, extendSession } = useAuth();
@@ -111,6 +126,11 @@ function AuthHarness() {
 describe('AuthContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFetchWithTimeout.mockResolvedValue({ ok: true, status: 200 });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('handles missing Supabase client gracefully', async () => {
@@ -124,6 +144,36 @@ describe('AuthContext', () => {
 
     expect(screen.getByTestId('loading').textContent).toBe('idle');
     expect(screen.getByTestId('auth-state').textContent).toBe('no');
+  });
+
+  it('rejects auth actions when Supabase client is unavailable', async () => {
+    mockGetSupabaseClient.mockReturnValueOnce(null);
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>
+    );
+
+    fireEvent.click(screen.getByText('login-fail'));
+    await waitFor(() => {
+      expect(screen.getByTestId('message').textContent).toBe('login-error');
+    });
+
+    fireEvent.click(screen.getByText('register-fail'));
+    await waitFor(() => {
+      expect(screen.getByTestId('message').textContent).toBe('Registration is unavailable.');
+    });
+
+    fireEvent.click(screen.getByText('extend-fail'));
+    await waitFor(() => {
+      expect(screen.getByTestId('message').textContent).toBe('extend-error');
+    });
+
+    fireEvent.click(screen.getByText('logout'));
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-state').textContent).toBe('no');
+    });
   });
 
   it('throws when useAuth is called outside provider', () => {
@@ -244,6 +294,216 @@ describe('AuthContext', () => {
     await waitFor(() => {
       expect(mockRefreshSession).toHaveBeenCalled();
     });
+  });
+
+  it('covers timer and ensure-profile branches with warning/session events', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let authCallback:
+      | ((
+          event: string,
+          session: {
+            user: { id: string; email?: string; user_metadata?: Record<string, unknown> };
+            expires_at?: number;
+          } | null
+        ) => void)
+      | undefined;
+
+    mockFetchWithTimeout.mockResolvedValueOnce({ ok: false, status: 500 });
+    const nowSeconds = Math.floor(Date.now() / 1000);
+
+    mockGetSupabaseClient.mockReturnValue({
+      auth: {
+        getSession: vi.fn().mockResolvedValue({
+          data: { session: { expires_at: nowSeconds + 3600 } },
+        }),
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'u1', email: undefined, user_metadata: {} } },
+        }),
+        signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
+        signUp: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+        signOut: vi.fn().mockResolvedValue({ error: null }),
+        refreshSession: vi.fn().mockResolvedValue({ data: { session: { expires_at: null } } }),
+        onAuthStateChange: vi.fn((cb: typeof authCallback) => {
+          authCallback = cb;
+          return { data: { subscription: { unsubscribe: vi.fn() } } };
+        }),
+      },
+    });
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-state').textContent).toBe('yes');
+      expect(screen.getByTestId('email').textContent).toBe('');
+    });
+    expect(warnSpy).toHaveBeenCalledWith('Profile ensure request failed', { status: 500 });
+
+    act(() => {
+      authCallback?.('SIGNED_IN', {
+        user: { id: 'u2', user_metadata: {} },
+        expires_at: nowSeconds - 60,
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('warning').textContent).toBe('no');
+    });
+
+    act(() => {
+      authCallback?.('SIGNED_IN', {
+        user: { id: 'u3', user_metadata: {} },
+        expires_at: nowSeconds + 10 * 60,
+      });
+    });
+
+    act(() => {
+      window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: false }));
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        value: 'hidden',
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    await act(async () => {
+      window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        value: 'visible',
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-state').textContent).toBe('yes');
+    });
+
+    warnSpy.mockRestore();
+  });
+
+  it('logs both unhandled rejection variants', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockGetSupabaseClient.mockReturnValueOnce(null);
+
+    const { unmount } = render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>
+    );
+
+    act(() => {
+      window.dispatchEvent(
+        new PromiseRejectionEvent('unhandledrejection', { promise: Promise.resolve(), reason: 'x' })
+      );
+      window.dispatchEvent(
+        new PromiseRejectionEvent('unhandledrejection', {
+          promise: Promise.resolve(),
+          reason: new Error('boom'),
+        })
+      );
+    });
+
+    expect(errorSpy).toHaveBeenCalledWith('Unhandled promise rejection', { message: 'unknown' });
+    expect(errorSpy).toHaveBeenCalledWith('Unhandled promise rejection', { message: 'boom' });
+    unmount();
+    errorSpy.mockRestore();
+  });
+
+  it('guards state updates when component is unmounted before async completion', async () => {
+    let authCallback:
+      | ((event: string, session: { user: { id: string; email: string } } | null) => void)
+      | undefined;
+    const getUserDeferred = deferred<{ data: { user: { id: string; email: string } } }>();
+    const getSessionDeferred = deferred<{ data: { session: { expires_at: number } | null } }>();
+
+    mockGetSupabaseClient.mockReturnValue({
+      auth: {
+        getSession: vi.fn().mockReturnValue(getSessionDeferred.promise),
+        getUser: vi.fn().mockReturnValue(getUserDeferred.promise),
+        signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
+        signUp: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+        signOut: vi.fn().mockResolvedValue({ error: null }),
+        refreshSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+        onAuthStateChange: vi.fn((cb: typeof authCallback) => {
+          authCallback = cb;
+          return { data: { subscription: { unsubscribe: vi.fn() } } };
+        }),
+      },
+    });
+
+    const { unmount } = render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>
+    );
+
+    unmount();
+    await act(async () => {
+      getSessionDeferred.resolve({ data: { session: null } });
+      getUserDeferred.resolve({ data: { user: { id: 'u1', email: 'u1@example.com' } } });
+      await Promise.resolve();
+    });
+
+    act(() => {
+      authCallback?.('SIGNED_IN', { user: { id: 'u2', email: 'u2@example.com' } });
+    });
+  });
+
+  it('covers catch branch with mounted false and signOut retry error logging', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const getUserDeferred = deferred<never>();
+    const getSessionDeferred = deferred<{ data: { session: null } }>();
+
+    mockGetSupabaseClient.mockReturnValue({
+      auth: {
+        getSession: vi.fn().mockReturnValue(getSessionDeferred.promise),
+        getUser: vi.fn().mockReturnValue(getUserDeferred.promise),
+        signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
+        signUp: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+        signOut: vi
+          .fn()
+          .mockRejectedValueOnce('first failure')
+          .mockRejectedValueOnce('second failure'),
+        refreshSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+        onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
+      },
+    });
+
+    const { unmount } = render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>
+    );
+
+    unmount();
+    await act(async () => {
+      getSessionDeferred.resolve({ data: { session: null } });
+      getUserDeferred.reject(new Error('late failure'));
+      await Promise.resolve();
+    });
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>
+    );
+    fireEvent.click(screen.getByText('logout'));
+
+    await waitFor(() => {
+      expect(warnSpy).toHaveBeenCalledWith('Primary sign-out request failed; retrying once', {
+        message: 'unknown',
+      });
+      expect(errorSpy).toHaveBeenCalledWith('Sign-out retry failed', { message: 'unknown' });
+    });
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
   });
 
   it('maps Supabase error branches for login and register', async () => {
@@ -447,5 +707,124 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('auth-state').textContent).toBe('no');
       expect(screen.getByTestId('warning').textContent).toBe('no');
     });
+  });
+
+  it('returns early if extendSession is already in progress', async () => {
+    const refreshDeferred = deferred<{ data: { session: { expires_at: null } }; error?: never }>();
+    mockGetSupabaseClient.mockReturnValue({
+      auth: {
+        getSession: vi.fn().mockResolvedValue({ data: { session: { expires_at: null } } }),
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'u3', email: 'timer@example.com', user_metadata: {} } },
+        }),
+        signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
+        signUp: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+        signOut: vi.fn().mockResolvedValue({ error: null }),
+        refreshSession: vi.fn().mockReturnValue(refreshDeferred.promise),
+        onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
+      },
+    });
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>
+    );
+    await waitFor(() => expect(screen.getByTestId('auth-state').textContent).toBe('yes'));
+
+    fireEvent.click(screen.getByText('extend-session'));
+    fireEvent.click(screen.getByText('extend-session'));
+
+    await act(async () => {
+      refreshDeferred.resolve({ data: { session: { expires_at: null } } });
+      await Promise.resolve();
+    });
+
+    // Second click should no-op while first is in-flight.
+    expect(mockGetSupabaseClient().auth.refreshSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('logs retry sign-out error message from Error instances', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockGetSupabaseClient.mockReturnValue({
+      auth: {
+        getSession: vi.fn().mockResolvedValue({ data: { session: { expires_at: null } } }),
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'u-retry-error', email: 'retry@example.com', user_metadata: {} } },
+        }),
+        signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
+        signUp: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+        signOut: vi
+          .fn()
+          .mockRejectedValueOnce(new Error('first-error'))
+          .mockRejectedValueOnce(new Error('retry-error')),
+        refreshSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+        onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
+      },
+    });
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>
+    );
+    await waitFor(() => expect(screen.getByTestId('auth-state').textContent).toBe('yes'));
+
+    fireEvent.click(screen.getByText('logout'));
+    await waitFor(() => {
+      expect(warnSpy).toHaveBeenCalledWith('Primary sign-out request failed; retrying once', {
+        message: 'first-error',
+      });
+      expect(errorSpy).toHaveBeenCalledWith('Sign-out retry failed', { message: 'retry-error' });
+    });
+
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
+  it('executes session-expiry timeout callback when session reaches expiry', async () => {
+    vi.useFakeTimers();
+    const intervalSpy = vi
+      .spyOn(global, 'setInterval')
+      .mockReturnValue(1 as unknown as NodeJS.Timeout);
+    const now = Date.now();
+    vi.setSystemTime(now);
+
+    mockGetSupabaseClient.mockReturnValue({
+      auth: {
+        getSession: vi.fn().mockResolvedValue({
+          data: { session: { expires_at: Math.floor((now + 1200) / 1000) } },
+        }),
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'u-expire', email: 'expire@example.com', user_metadata: {} } },
+        }),
+        signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
+        signUp: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+        signOut: vi.fn().mockResolvedValue({ error: null }),
+        refreshSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+        onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
+      },
+    });
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId('warning').textContent).toBe('no');
+    expect(screen.getByTestId('remaining').textContent).toBe('none');
+    intervalSpy.mockRestore();
   });
 });

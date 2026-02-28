@@ -1,4 +1,4 @@
-// Verified with migration 007: no schema shape changes (security-only migration).
+// Verified with migration 008: no schema shape changes (security-only migration).
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export interface Database {

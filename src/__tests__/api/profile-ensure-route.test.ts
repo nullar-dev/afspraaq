@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { NextRequest } from 'next/server';
 import {
   POST,
@@ -14,6 +14,9 @@ vi.mock('@/utils/supabase/server', () => ({
 }));
 
 describe('auth profile ensure route', () => {
+  let consoleErrorSpy: MockInstance;
+  let consoleWarnSpy: MockInstance;
+
   const makeRequest = (url = 'http://localhost:3000/api/auth/profile/ensure') =>
     new NextRequest(url, {
       method: 'POST',
@@ -27,10 +30,14 @@ describe('auth profile ensure route', () => {
     vi.clearAllMocks();
     delete process.env.ALLOWED_ORIGINS;
     __resetEnsureProfileRateLimitForTests();
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    consoleErrorSpy?.mockRestore();
+    consoleWarnSpy?.mockRestore();
   });
 
   it('returns 405 for GET', async () => {

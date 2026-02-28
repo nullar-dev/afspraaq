@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 
 const ALLOWED_REDIRECTS = new Set([
   '/',
+  '/admin',
   '/booking/vehicle',
   '/booking/services',
   '/booking/schedule',

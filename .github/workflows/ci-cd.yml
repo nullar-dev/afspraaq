@@ -310,6 +310,8 @@ jobs:
         if: steps.cache-playwright.outputs.cache-hit != 'true'
 
       - name: Run E2E Tests
+        env:
+          E2E_MODE: production_smoke
         run: pnpm playwright test ${{ env.TEST_E2E_DIR }}
 
   # ---------------------------------------------------------------------------

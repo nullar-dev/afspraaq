@@ -1,8 +1,17 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const e2eMode = process.env.E2E_MODE || 'all';
+const testMatch =
+  e2eMode === 'production_smoke'
+    ? ['**/*.production.test.ts']
+    : e2eMode === 'staging_full'
+      ? ['**/*.staging.test.ts']
+      : ['**/*.test.ts'];
+
 const config = defineConfig({
   // Test directory - can be overridden with TEST_E2E_DIR env var
   testDir: process.env.TEST_E2E_DIR || './src/__tests__/e2e',
+  testMatch,
 
   // Run tests in parallel
   fullyParallel: process.env.PLAYWRIGHT_PARALLEL !== 'false',

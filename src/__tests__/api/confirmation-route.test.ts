@@ -10,16 +10,22 @@ vi.mock('@/utils/supabase/server', () => ({
 
 describe('bookings confirmation route', () => {
   const originalEnv = process.env;
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     process.env = { ...originalEnv };
     delete process.env.ALLOWED_ORIGINS;
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
     __resetRateLimitStoreForTests();
+    consoleErrorSpy.mockRestore();
+    consoleWarnSpy.mockRestore();
   });
 
   it('returns 403 when origin is missing or invalid', async () => {
@@ -88,7 +94,7 @@ describe('bookings confirmation route', () => {
   it('logs missing ALLOWED_ORIGINS once in production', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     delete process.env.ALLOWED_ORIGINS;
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    consoleErrorSpy.mockClear();
 
     mockCreateClient.mockResolvedValue({
       auth: {
@@ -109,7 +115,6 @@ describe('bookings confirmation route', () => {
     expect(first.status).toBe(403);
     expect(second.status).toBe(403);
     expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
-    consoleErrorSpy.mockRestore();
   });
 
   it('returns 403 when origin header is missing', async () => {

@@ -14,6 +14,9 @@ vi.mock('@/utils/supabase/server', () => ({
 }));
 
 describe('auth profile ensure route', () => {
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+
   const makeRequest = (url = 'http://localhost:3000/api/auth/profile/ensure') =>
     new NextRequest(url, {
       method: 'POST',
@@ -27,10 +30,14 @@ describe('auth profile ensure route', () => {
     vi.clearAllMocks();
     delete process.env.ALLOWED_ORIGINS;
     __resetEnsureProfileRateLimitForTests();
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    consoleErrorSpy.mockRestore();
+    consoleWarnSpy.mockRestore();
   });
 
   it('returns 405 for GET', async () => {

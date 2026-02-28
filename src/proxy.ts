@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 const ALLOWED_REDIRECTS = new Set([
   '/',
+  '/admin',
   '/booking/vehicle',
   '/booking/services',
   '/booking/schedule',

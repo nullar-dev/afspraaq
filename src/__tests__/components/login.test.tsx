@@ -76,6 +76,23 @@ describe('Login Page', () => {
     });
   });
 
+  it('accepts /admin as a safe redirect target', async () => {
+    mockSearchParams.mockReturnValue(new URLSearchParams('redirect=%2Fadmin'));
+    mockLogin.mockResolvedValueOnce(undefined);
+
+    const { default: LoginPage } = await import('../../app/login/page');
+    const user = userEvent.setup();
+    render(<LoginPage />);
+
+    await user.type(screen.getByLabelText(/email address/i), 'admin@example.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'password123');
+    await user.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith('/admin');
+    });
+  });
+
   it('rejects unsafe redirect query param', async () => {
     mockSearchParams.mockReturnValue(new URLSearchParams('redirect=%2F%2Fevil.com'));
     mockLogin.mockResolvedValueOnce(undefined);

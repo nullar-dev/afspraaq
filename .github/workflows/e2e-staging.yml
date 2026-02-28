@@ -1,0 +1,74 @@
+name: E2E Staging Full
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'
+
+concurrency:
+  group: e2e-staging-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-staging:
+    name: Full E2E (Staging)
+    runs-on: [self-hosted, coolify-private]
+    environment: staging
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      E2E_MODE: staging_full
+      E2E_BASE_URL: ${{ vars.STAGING_APP_BASE_URL }}
+      E2E_SUPABASE_URL: ${{ vars.STAGING_SUPABASE_URL }}
+      E2E_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+      PLAYWRIGHT_RETRIES: '1'
+      PLAYWRIGHT_WORKERS: '1'
+    steps:
+      - name: Validate required staging configuration
+        run: |
+          set -euo pipefail
+          if [[ -z "${E2E_BASE_URL}" ]]; then
+            echo "Missing required variable: STAGING_APP_BASE_URL"
+            exit 1
+          fi
+          if [[ -z "${E2E_SUPABASE_URL}" ]]; then
+            echo "Missing required variable: STAGING_SUPABASE_URL"
+            exit 1
+          fi
+          if [[ -z "${E2E_SUPABASE_SERVICE_ROLE_KEY}" ]]; then
+            echo "Missing required secret: STAGING_SUPABASE_SERVICE_ROLE_KEY"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6.2.0
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install chromium
+
+      - name: Run full staging E2E suite
+        run: pnpm playwright test src/__tests__/e2e
+
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v6.0.0
+        with:
+          name: playwright-staging-results
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7

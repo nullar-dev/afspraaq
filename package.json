@@ -23,9 +23,7 @@
     "test:api": "vitest run",
     "test:e2e": "playwright test",
     "sentry": "sentry",
-    "supabase:types:check": "test -f src/types/supabase.generated.ts",
-    "dev:db:reset": "bash scripts/local-dev-reset.sh",
-    "dev:db:seed": "bash scripts/local-dev-seed.sh"
+    "supabase:types:check": "test -f src/types/supabase.generated.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -40,6 +38,7 @@
     "lucide-react": "^0.575.0",
     "next": "^16.1.6",
     "react": "^19.2.4",
+    "react-admin": "^5.14.3",
     "react-dom": "^19.2.4",
     "tailwind-merge": "^3.5.0",
     "zod": "^4.3.6"

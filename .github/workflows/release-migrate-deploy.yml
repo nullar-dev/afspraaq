@@ -1,0 +1,142 @@
+name: Release Migrate and Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: release-migrate-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preflight-config:
+    name: Preflight Configuration Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Validate required secrets
+        env:
+          STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          PRODUCTION_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          missing=0
+          if [[ -z "${STAGING_DATABASE_URL}" ]]; then
+            echo "Missing required secret: STAGING_DATABASE_URL"
+            missing=1
+          fi
+          if [[ -z "${PRODUCTION_DATABASE_URL}" ]]; then
+            echo "Missing required secret: PRODUCTION_DATABASE_URL"
+            missing=1
+          fi
+          if [[ "${missing}" -ne 0 ]]; then
+            echo "Required secrets are missing. Configure GitHub Environments before running release workflow."
+            exit 1
+          fi
+
+  migrate-staging:
+    name: Migrate Staging DB
+    runs-on: [self-hosted, coolify-private]
+    needs: preflight-config
+    environment: staging
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Run staging migrations
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: bash scripts/run-migrations.sh
+
+      - name: Verify required table exists (profiles)
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          RESULT="$(psql "$DATABASE_URL" -At -c "select 1 from information_schema.tables where table_schema='public' and table_name='profiles' limit 1;")"
+          if [[ "$RESULT" != "1" ]]; then
+            echo "Expected table public.profiles to exist after migrations."
+            exit 1
+          fi
+
+  backup-production:
+    name: Backup Production DB
+    runs-on: [self-hosted, coolify-private]
+    needs: migrate-staging
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Create production backup
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p backups
+          BACKUP_FILE="backups/prod-${GITHUB_SHA:0:12}-$(date -u +%Y%m%dT%H%M%SZ).dump"
+          pg_dump --format=custom --no-owner --no-privileges --file="$BACKUP_FILE" "$DATABASE_URL"
+          echo "Created backup: $BACKUP_FILE"
+
+      - name: Upload production backup artifact
+        uses: actions/upload-artifact@v6.0.0
+        with:
+          name: production-db-backup-${{ github.sha }}
+          path: backups/*.dump
+          retention-days: 3
+          if-no-files-found: error
+
+  migrate-production:
+    name: Migrate Production DB
+    runs-on: [self-hosted, coolify-private]
+    needs: backup-production
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Run production migrations
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: bash scripts/run-migrations.sh
+
+      - name: Verify required table exists (profiles)
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          RESULT="$(psql "$DATABASE_URL" -At -c "select 1 from information_schema.tables where table_schema='public' and table_name='profiles' limit 1;")"
+          if [[ "$RESULT" != "1" ]]; then
+            echo "Expected table public.profiles to exist after migrations."
+            exit 1
+          fi
+
+  deploy-coolify:
+    name: Trigger Coolify Deploy
+    runs-on: ubuntu-latest
+    needs: migrate-production
+    if: ${{ secrets.COOLIFY_DEPLOY_WEBHOOK_URL != '' }}
+    permissions:
+      contents: read
+    steps:
+      - name: Trigger deployment webhook
+        env:
+          COOLIFY_DEPLOY_WEBHOOK_URL: ${{ secrets.COOLIFY_DEPLOY_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+          curl -fsS -X POST "$COOLIFY_DEPLOY_WEBHOOK_URL"

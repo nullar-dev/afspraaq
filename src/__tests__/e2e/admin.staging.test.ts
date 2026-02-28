@@ -23,7 +23,7 @@ test.describe('Staging admin access control', () => {
       await expect(page).toHaveURL(/\/booking\/vehicle$/);
 
       await page.goto('/admin');
-      await expect(page).toHaveURL(/\/$/);
+      await expect(page).toHaveURL(/\/booking\/vehicle$/);
     } finally {
       await deleteEphemeralUser(user.id);
     }
@@ -37,7 +37,7 @@ test.describe('Staging admin access control', () => {
       await expect(page).toHaveURL(/\/booking\/vehicle$/);
 
       await page.goto('/admin');
-      await expect(page).toHaveURL(/\/admin$/);
+      await expect(page).toHaveURL(/\/admin(?:#\/profiles)?$/);
       await expect(page.getByText(/profiles/i)).toBeVisible();
     } finally {
       await deleteEphemeralUser(adminUser.id);

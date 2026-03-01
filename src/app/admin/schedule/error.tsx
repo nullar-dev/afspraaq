@@ -9,7 +9,6 @@ export default function ScheduleError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  void error;
   // Log for debugging without exposing details to users
   console.error('Schedule page error:', error);
   const message = 'An unexpected error occurred while loading the schedule.';

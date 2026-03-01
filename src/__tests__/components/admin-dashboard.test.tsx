@@ -27,5 +27,6 @@ describe('Admin Dashboard', () => {
 
     expect(screen.getByText('Dashboard')).toBeTruthy();
     expect(screen.getByText("Today's Revenue")).toBeTruthy();
+    expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
   });
 });

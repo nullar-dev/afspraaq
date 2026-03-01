@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Pre-push hook with AI Code Review
+# Pre-push hook with NullarAI Code Review
 # This hook prompts the user to run an AI code review before pushing
 
 # Colors for output
@@ -25,7 +25,7 @@ fi
 # Check if running in interactive terminal
 if [ ! -t 0 ]; then
     # Non-interactive mode: auto-run review without prompts
-    echo -e "${BLUE}🤖 AI Code Review (non-interactive mode)${NC}"
+    echo -e "${BLUE}🤖 NullarNullarAI Code Review (non-interactive mode)${NC}"
     echo "============================================="
     
     # Get remote and branch info
@@ -40,7 +40,7 @@ if [ ! -t 0 ]; then
     commit_range="${remote}/${branch}..HEAD"
     
     echo ""
-    echo -e "${BLUE}🔍 Running AI Code Review...${NC}"
+    echo -e "${BLUE}🔍 Running NullarAI Code Review...${NC}"
     echo ""
     
     node scripts/ai-code-reviewer.js "$commit_range"
@@ -92,11 +92,11 @@ prompt_yes_no() {
 }
 
 # Main logic
-echo -e "${BLUE}🤖 AI Code Review${NC}"
+echo -e "${BLUE}🤖 NullarAI Code Review${NC}"
 echo "=================="
 
 # Prompt user to run review
-if prompt_yes_no "Do you want to run an AI Code Review on this push?"; then
+if prompt_yes_no "Do you want to run an NullarAI Code Review on this push?"; then
     # Get remote and branch info
     remote=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null | cut -d'/' -f1)
     branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
@@ -111,7 +111,7 @@ if prompt_yes_no "Do you want to run an AI Code Review on this push?"; then
     # Loop for re-running review
     while true; do
         echo ""
-        echo -e "${BLUE}🔍 Running AI Code Review...${NC}"
+        echo -e "${BLUE}🔍 Running NullarAI Code Review...${NC}"
         echo ""
         
         # Run the review
@@ -121,7 +121,7 @@ if prompt_yes_no "Do you want to run an AI Code Review on this push?"; then
         echo ""
         
         # Check if user wants to re-run
-        if prompt_yes_no "Do you want to re-run the AI Code Review again to try and find some issues?"; then
+        if prompt_yes_no "Do you want to re-run the NullarAI Code Review again to try and find some issues?"; then
             echo ""
             echo -e "${YELLOW}↻ Re-running review...${NC}"
             continue
@@ -160,6 +160,6 @@ if prompt_yes_no "Do you want to run an AI Code Review on this push?"; then
     done
 else
     echo ""
-    echo -e "${GREEN}⏭️  Skipping AI Code Review, proceeding with push${NC}"
+    echo -e "${GREEN}⏭️  Skipping NullarAI Code Review, proceeding with push${NC}"
     exit 0
 fi

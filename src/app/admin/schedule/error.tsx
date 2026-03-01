@@ -9,6 +9,9 @@ export default function ScheduleError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  void error;
+  const message = 'An unexpected error occurred while loading the schedule.';
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -33,9 +36,7 @@ export default function ScheduleError({
           </svg>
         </div>
         <h2 className="text-xl font-semibold mb-2">Failed to Load Schedule</h2>
-        <p className="text-dark-900 mb-6">
-          {error.message || 'An unexpected error occurred while loading the schedule.'}
-        </p>
+        <p className="text-dark-900 mb-6">{message}</p>
         <Button onClick={reset}>Try Again</Button>
       </Card>
     </div>

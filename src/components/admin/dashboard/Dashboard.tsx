@@ -145,7 +145,7 @@ export function Dashboard({ data = mockDashboardData }: DashboardProps) {
           title="Pending"
           value={todayStats.pendingAppointments}
           change={todayStats.pendingChange}
-          changeType={todayStats.pendingChange <= 0 ? 'positive' : 'negative'}
+          changeType={todayStats.pendingChange < 0 ? 'positive' : 'negative'}
           icon={Clock}
         />
       </div>

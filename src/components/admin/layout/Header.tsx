@@ -10,9 +10,10 @@ interface HeaderProps {
   };
   onMenuClick: () => void;
   onSearchClick: () => void;
+  unreadCount?: number;
 }
 
-export function Header({ user, onMenuClick, onSearchClick }: HeaderProps) {
+export function Header({ user, onMenuClick, onSearchClick, unreadCount = 0 }: HeaderProps) {
   return (
     <header className="h-16 bg-dark-100/80 backdrop-blur-xl border-b border-dark-400 sticky top-0 z-30">
       <div className="h-full px-4 sm:px-6 flex items-center justify-between">
@@ -20,6 +21,7 @@ export function Header({ user, onMenuClick, onSearchClick }: HeaderProps) {
           <button
             onClick={onMenuClick}
             className="lg:hidden p-2 hover:bg-dark-200 rounded-lg transition-colors"
+            aria-label="Toggle menu"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -28,6 +30,7 @@ export function Header({ user, onMenuClick, onSearchClick }: HeaderProps) {
           <button
             onClick={onSearchClick}
             className="hidden sm:flex items-center gap-3 px-4 py-2 bg-dark-200 rounded-lg text-dark-900 hover:text-white transition-colors"
+            aria-label="Open search"
           >
             <Search className="w-4 h-4" />
             <span className="text-sm">Search...</span>
@@ -36,9 +39,17 @@ export function Header({ user, onMenuClick, onSearchClick }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-3">
-          <button className="p-2 hover:bg-dark-200 rounded-lg transition-colors relative">
+          <button
+            className="p-2 hover:bg-dark-200 rounded-lg transition-colors relative"
+            aria-label="Notifications"
+          >
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-gold rounded-full"></span>
+            {unreadCount > 0 && (
+              <span
+                data-testid="notification-dot"
+                className="absolute top-1 right-1 w-2 h-2 bg-gold rounded-full"
+              ></span>
+            )}
           </button>
 
           <div className="flex items-center gap-3 pl-3 border-l border-dark-400">

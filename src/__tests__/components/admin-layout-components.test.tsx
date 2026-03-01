@@ -25,6 +25,23 @@ describe('Admin layout components', () => {
     );
 
     expect(screen.getByText('Admin')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Toggle menu' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open search' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Notifications' })).toBeTruthy();
+    expect(screen.queryByTestId('notification-dot')).toBeNull();
+  });
+
+  it('renders notification dot only when there are unread notifications', () => {
+    render(
+      <Header
+        user={{ id: 'u1', email: 'admin@example.com', role: 'admin' }}
+        onMenuClick={vi.fn()}
+        onSearchClick={vi.fn()}
+        unreadCount={2}
+      />
+    );
+
+    expect(screen.getByTestId('notification-dot')).toBeTruthy();
   });
 
   it('highlights active item in mobile nav', () => {

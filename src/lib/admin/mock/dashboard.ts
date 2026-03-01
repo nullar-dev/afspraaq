@@ -296,13 +296,17 @@ const todayRevenue = todayBookings.reduce((sum, b) => sum + b.price, 0);
 export const mockDashboardData = {
   todayStats: {
     revenue: todayRevenue,
-    revenueChange: Number(
-      (((todayRevenue - yesterday.revenue) / yesterday.revenue) * 100).toFixed(1)
-    ),
+    revenueChange:
+      yesterday.revenue > 0
+        ? Number((((todayRevenue - yesterday.revenue) / yesterday.revenue) * 100).toFixed(1))
+        : 0,
     bookings: todayBookings.length,
-    bookingsChange: Number(
-      (((todayBookings.length - yesterday.bookings) / yesterday.bookings) * 100).toFixed(1)
-    ),
+    bookingsChange:
+      yesterday.bookings > 0
+        ? Number(
+            (((todayBookings.length - yesterday.bookings) / yesterday.bookings) * 100).toFixed(1)
+          )
+        : 0,
     totalCustomers: 156,
     customersChange: 3.2,
     pendingAppointments: todayBookings.filter(b => b.status === 'pending').length,

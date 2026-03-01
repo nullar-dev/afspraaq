@@ -10,6 +10,8 @@ export default function CustomersError({
   reset: () => void;
 }) {
   void error;
+  // Log for debugging without exposing details to users
+  console.error('Customers page error:', error);
   const message = 'An unexpected error occurred while loading the customers.';
 
   return (

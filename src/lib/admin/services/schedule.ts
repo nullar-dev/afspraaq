@@ -142,7 +142,7 @@ export async function getScheduleStats(date: string): Promise<{
     totalSlots,
     availableSlots,
     bookedSlots,
-    utilizationRate: Math.round((bookedSlots / totalSlots) * 100),
+    utilizationRate: totalSlots > 0 ? Math.round((bookedSlots / totalSlots) * 100) : 0,
     totalRevenueCents: schedule.totalRevenueCents,
   };
 }

@@ -10,6 +10,8 @@ export default function BookingsError({
   reset: () => void;
 }) {
   void error;
+  // Log for debugging without exposing details to users
+  console.error('Bookings page error:', error);
   const message = 'An unexpected error occurred while loading the bookings.';
 
   return (

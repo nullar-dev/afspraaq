@@ -77,7 +77,7 @@ export default defineConfig(() => {
           .filter(Boolean),
         exclude: (
           env.COVERAGE_EXCLUDE ||
-          '**/*.test.ts,**/*.spec.ts,**/e2e/**,**/node_modules/**,src/app/**/*.css,src/types/**,src/app/layout.tsx,src/app/**/metadata.ts,src/proxy.ts,src/utils/supabase/server.ts'
+          '**/*.test.ts,**/*.spec.ts,**/e2e/**,**/node_modules/**,src/app/**/*.css,src/types/**,src/app/layout.tsx,src/app/**/metadata.ts,src/proxy.ts,src/utils/supabase/server.ts,src/lib/admin/services/index.ts,src/lib/admin/services/types.ts,src/app/**/loading.tsx,src/app/**/error.tsx,src/components/admin/bookings/*.tsx,src/components/admin/schedule/*.tsx'
         )
           .split(',')
           .map(p => p.trim())

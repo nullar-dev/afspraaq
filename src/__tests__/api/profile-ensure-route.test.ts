@@ -28,7 +28,7 @@ describe('auth profile ensure route', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    delete process.env.ALLOWED_ORIGINS;
+    process.env.ALLOWED_ORIGINS = 'http://localhost:3000';
     __resetEnsureProfileRateLimitForTests();
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -167,14 +167,13 @@ describe('auth profile ensure route', () => {
     expect(body.ok).toBe(true);
   });
 
-  it('fails closed in production when ALLOWED_ORIGINS is missing', async () => {
-    vi.stubEnv('NODE_ENV', 'production');
+  it('fails closed when ALLOWED_ORIGINS is missing', async () => {
     delete process.env.ALLOWED_ORIGINS;
 
-    const request = new NextRequest('https://nullar.dev/api/auth/profile/ensure', {
+    const request = new NextRequest('https://app.example.com/api/auth/profile/ensure', {
       method: 'POST',
       headers: {
-        origin: 'https://nullar.dev',
+        origin: 'https://app.example.com',
         'x-requested-with': 'XMLHttpRequest',
       },
     });

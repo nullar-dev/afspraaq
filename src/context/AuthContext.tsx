@@ -275,9 +275,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const loginWithOAuth = async (provider: 'google' | 'microsoft' | 'apple') => {
-    void provider;
-    throw new Error('OAuth sign-in is coming soon.');
+  const loginWithOAuth = async (_provider: 'google' | 'microsoft' | 'apple') => {
+    void _provider;
+    throw new Error('OAuth sign-in is not available.');
   };
 
   const register = async (data: RegisterData): Promise<RegisterResult> => {

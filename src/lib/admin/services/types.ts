@@ -12,7 +12,7 @@ export interface Booking {
   date: string;
   time: string;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
-  price: number;
+  priceCents: number;
   notes: string | undefined;
   createdAt: string;
   updatedAt: string;
@@ -24,7 +24,7 @@ export interface Customer {
   email: string;
   phone: string;
   totalBookings: number;
-  totalSpent: number;
+  totalSpentCents: number;
   lastBooking: string;
   joinedAt: string;
   avatar: string | undefined;
@@ -48,7 +48,7 @@ export interface ScheduleDay {
   date: string;
   slots: ScheduleSlot[];
   totalBookings: number;
-  totalRevenue: number;
+  totalRevenueCents: number;
 }
 
 // Filter types - all fields explicitly allow undefined for exactOptionalPropertyTypes compatibility
@@ -87,7 +87,20 @@ export interface BookingUpdateData {
   service: Booking['service'] | undefined;
   vehicle: Booking['vehicle'] | undefined;
   notes: string | undefined;
-  price: number | undefined;
+  priceCents: number | undefined;
+}
+
+export interface BookingCreateData {
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  service: Booking['service'];
+  vehicle: Booking['vehicle'];
+  date: string;
+  time: string;
+  status?: Booking['status'];
+  notes?: string;
+  priceCents?: number;
 }
 
 export interface CustomerUpdateData {
@@ -98,9 +111,9 @@ export interface CustomerUpdateData {
 }
 
 export interface RevenueStats {
-  total: number;
-  change: number;
-  trend: Array<{ date: string; value: number }>;
+  totalCents: number;
+  changeCents: number;
+  trend: Array<{ date: string; valueCents: number }>;
 }
 
 export interface BookingStats {

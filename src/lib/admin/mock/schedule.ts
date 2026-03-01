@@ -38,6 +38,16 @@ function randomItem<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)] as T;
 }
 
+function hashString(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash << 5) - hash + value.charCodeAt(i);
+    hash |= 0;
+  }
+
+  return Math.abs(hash);
+}
+
 function generateMockBooking(time: string, date: string): Booking {
   const service = randomItem(services);
   const vehicle = randomItem(vehicles);
@@ -47,16 +57,16 @@ function generateMockBooking(time: string, date: string): Booking {
   const vehicleMultiplier = vehicle === 'Luxury' ? 1.5 : vehicle === 'SUV' ? 1.2 : 1;
 
   return {
-    id: `BK-${Math.floor(Math.random() * 9000) + 1000}`,
+    id: `BK-${date.replace(/-/g, '')}-${time.replace(/[^0-9]/g, '')}`,
     customerName: `${firstName} ${lastName}`,
     customerEmail: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@email.com`,
-    customerPhone: `+1 (555) ${String(Math.floor(Math.random() * 900) + 100).padStart(3, '0')}-${String(Math.floor(Math.random() * 9000) + 1000).padStart(4, '0')}`,
+    customerPhone: `+1 (555) ${String(Math.floor(Math.random() * 800) + 200).padStart(3, '0')}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`,
     service,
     vehicle,
     date,
     time,
-    status: Math.random() > 0.8 ? 'pending' : 'confirmed',
-    price: Math.floor(basePrice * vehicleMultiplier),
+    status: hashString(`${date}-${time}`) % 5 === 0 ? 'pending' : 'confirmed',
+    priceCents: Math.floor(basePrice * vehicleMultiplier * 100),
     notes: undefined,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -84,7 +94,7 @@ export function generateMockScheduleDay(date: string): ScheduleDay {
     date,
     slots,
     totalBookings: bookings.length,
-    totalRevenue: bookings.reduce((sum, b) => sum + b.price, 0),
+    totalRevenueCents: bookings.reduce((sum, b) => sum + b.priceCents, 0),
   };
 }
 

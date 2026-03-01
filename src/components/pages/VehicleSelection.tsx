@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { Check, Info, ChevronRight, Sparkles } from 'lucide-react';
+import { Check, ChevronRight, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 import { useBooking } from '@/context/BookingContext';
 import { vehicles } from '@/data/bookingData';
@@ -175,16 +175,6 @@ const VehicleSelection: React.FC = () => {
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          disabled
-          title="More details coming soon"
-          className="w-full sm:w-auto px-5 py-3 rounded-xl border border-[#2A2A2A] text-[#B0B0B0] text-sm font-medium opacity-70 cursor-not-allowed flex items-center justify-center gap-2 group"
-        >
-          <Info className="w-4 h-4" />
-          Learn More
-          <ChevronRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
-        </button>
       </div>
     </div>
   );

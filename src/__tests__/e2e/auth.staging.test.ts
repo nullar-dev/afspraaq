@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   createEphemeralUser,
   deleteEphemeralUser,
-  hasStagingAdminEnv,
+  requireStagingAdminEnv,
   uniqueEmail,
 } from './helpers/staging-auth';
 
@@ -16,7 +16,9 @@ const signIn = async (page: import('@playwright/test').Page, email: string, pass
 };
 
 test.describe('Staging real auth flows', () => {
-  test.skip(!hasStagingAdminEnv(), 'Staging Supabase admin env is required for this suite');
+  test.beforeAll(() => {
+    requireStagingAdminEnv();
+  });
 
   test('registers a real user with safe UX outcome', async ({ page }) => {
     const email = uniqueEmail('e2e.register');

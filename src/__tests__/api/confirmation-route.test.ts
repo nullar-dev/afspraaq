@@ -16,7 +16,7 @@ describe('bookings confirmation route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env = { ...originalEnv };
-    delete process.env.ALLOWED_ORIGINS;
+    process.env.ALLOWED_ORIGINS = 'http://localhost:3000';
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
@@ -67,8 +67,7 @@ describe('bookings confirmation route', () => {
     expect(body.error.message).toBe('Forbidden');
   });
 
-  it('fails closed in production when ALLOWED_ORIGINS is missing', async () => {
-    vi.stubEnv('NODE_ENV', 'production');
+  it('fails closed when ALLOWED_ORIGINS is missing', async () => {
     delete process.env.ALLOWED_ORIGINS;
 
     mockCreateClient.mockResolvedValue({
@@ -77,10 +76,10 @@ describe('bookings confirmation route', () => {
       },
     });
 
-    const request = new NextRequest('https://nullar.dev/api/bookings/confirmation', {
+    const request = new NextRequest('https://app.example.com/api/bookings/confirmation', {
       method: 'POST',
       headers: {
-        origin: 'https://nullar.dev',
+        origin: 'https://app.example.com',
         'x-requested-with': 'XMLHttpRequest',
       },
     });
@@ -91,8 +90,7 @@ describe('bookings confirmation route', () => {
     expect(body.error.code).toBe('forbidden_origin');
   });
 
-  it('logs missing ALLOWED_ORIGINS once in production', async () => {
-    vi.stubEnv('NODE_ENV', 'production');
+  it('logs missing ALLOWED_ORIGINS once', async () => {
     delete process.env.ALLOWED_ORIGINS;
     consoleErrorSpy.mockClear();
 
@@ -102,10 +100,10 @@ describe('bookings confirmation route', () => {
       },
     });
 
-    const request = new NextRequest('https://nullar.dev/api/bookings/confirmation', {
+    const request = new NextRequest('https://app.example.com/api/bookings/confirmation', {
       method: 'POST',
       headers: {
-        origin: 'https://nullar.dev',
+        origin: 'https://app.example.com',
         'x-requested-with': 'XMLHttpRequest',
       },
     });

@@ -21,7 +21,7 @@ export const __resetEnsureProfileRateLimitForTests = () => {
   ensureRequestsSinceCleanup = 0;
 };
 
-const parseAllowedOrigins = (request: NextRequest) => {
+const parseAllowedOrigins = () => {
   const configured = process.env.ALLOWED_ORIGINS?.split(',')
     .map(origin => origin.trim())
     .filter(Boolean);
@@ -30,12 +30,8 @@ const parseAllowedOrigins = (request: NextRequest) => {
     return new Set(configured);
   }
 
-  if (process.env.NODE_ENV === 'production') {
-    console.error('ALLOWED_ORIGINS is required in production for profile ensure endpoint.');
-    return new Set<string>();
-  }
-
-  return new Set([request.nextUrl.origin]);
+  console.error('ALLOWED_ORIGINS is required for profile ensure endpoint.');
+  return new Set<string>();
 };
 
 const checkRateLimit = (key: string) => {
@@ -87,7 +83,7 @@ export async function POST(request: NextRequest) {
     return json({ error: { code: 'forbidden_request', message: 'Forbidden' } }, 403);
   }
 
-  const allowedOrigins = parseAllowedOrigins(request);
+  const allowedOrigins = parseAllowedOrigins();
   const requestOrigin = request.headers.get('origin');
   if (!requestOrigin || !allowedOrigins.has(requestOrigin)) {
     return json({ error: { code: 'forbidden_origin', message: 'Forbidden' } }, 403);

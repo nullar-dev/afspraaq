@@ -25,11 +25,28 @@ import { generateMockCustomers, filterMockCustomers } from '../mock/customers';
 
 // Cache duration in milliseconds (5 minutes)
 const CACHE_DURATION = 5 * 60 * 1000;
+const MAX_CACHE_SIZE = 100;
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 10;
+const MAX_LIMIT = 100;
 
 const cache = new Map<string, { data: unknown; timestamp: number }>();
+const customerCacheIndex = new Map<string, Set<string>>();
+let customersStore = generateMockCustomers(50);
+const customerBookings = new Map<string, string[]>();
+
+for (const customer of customersStore) {
+  customerBookings.set(
+    customer.id,
+    Array.from({ length: customer.totalBookings }, (_, index) => `BK-${1000 + index}`)
+  );
+}
 
 function getCacheKey(operation: string, params: CustomerFilters | Record<string, unknown>): string {
-  return `${operation}:${JSON.stringify(params)}`;
+  const normalized = Object.entries(params)
+    .filter(([, value]) => value !== undefined)
+    .sort(([left], [right]) => left.localeCompare(right));
+  return `${operation}:${JSON.stringify(normalized)}`;
 }
 
 function getCachedData<T>(key: string): T | null {
@@ -42,7 +59,87 @@ function getCachedData<T>(key: string): T | null {
 }
 
 function setCachedData<T>(key: string, data: T): void {
+  cleanupExpiredCache();
+  if (cache.size >= MAX_CACHE_SIZE) {
+    const oldestKey = cache.keys().next().value;
+    if (oldestKey) {
+      cache.delete(oldestKey);
+    }
+  }
+
   cache.set(key, { data, timestamp: Date.now() });
+}
+
+function cleanupExpiredCache(): void {
+  const now = Date.now();
+  for (const [key, value] of cache.entries()) {
+    if (now - value.timestamp >= CACHE_DURATION) {
+      cache.delete(key);
+    }
+  }
+}
+
+function indexCacheKeyByCustomers(key: string, customers: Customer[]): void {
+  for (const customer of customers) {
+    const keys = customerCacheIndex.get(customer.id) ?? new Set<string>();
+    keys.add(key);
+    customerCacheIndex.set(customer.id, keys);
+  }
+}
+
+function invalidateCustomerCaches(customerId: string): void {
+  const keys = customerCacheIndex.get(customerId);
+  if (!keys) {
+    return;
+  }
+
+  for (const key of keys) {
+    cache.delete(key);
+  }
+
+  customerCacheIndex.delete(customerId);
+}
+
+function sanitizeFilters(filters: Partial<CustomerFilters>): CustomerFilters {
+  const minBookings =
+    Number.isInteger(filters.minBookings) && (filters.minBookings ?? 0) >= 0
+      ? (filters.minBookings as number)
+      : undefined;
+  const maxBookings =
+    Number.isInteger(filters.maxBookings) && (filters.maxBookings ?? 0) >= 0
+      ? (filters.maxBookings as number)
+      : undefined;
+
+  const pageCandidate = Number(filters.page);
+  const limitCandidate = Number(filters.limit);
+
+  return {
+    ...defaultFilters,
+    search: filters.search?.trim() || undefined,
+    minBookings,
+    maxBookings,
+    page: Number.isInteger(pageCandidate) && pageCandidate > 0 ? pageCandidate : DEFAULT_PAGE,
+    limit:
+      Number.isInteger(limitCandidate) && limitCandidate > 0
+        ? Math.min(limitCandidate, MAX_LIMIT)
+        : DEFAULT_LIMIT,
+  };
+}
+
+function findCustomerById(id: string): Customer | null {
+  return customersStore.find(customer => customer.id === id) ?? null;
+}
+
+function assertValidCustomerId(id: string): void {
+  if (!/^CUST-[A-Za-z0-9-]+$/.test(id)) {
+    throw new Error('Invalid customer ID format');
+  }
+}
+
+function validateCustomerUpdate(data: Partial<CustomerUpdateData>): void {
+  if (data.email !== undefined && data.email.trim() !== '' && !data.email.includes('@')) {
+    throw new Error('Invalid customer email');
+  }
 }
 
 const defaultFilters: CustomerFilters = {
@@ -63,7 +160,7 @@ export async function getCustomers(
 ): Promise<PaginatedResult<Customer>> {
   await new Promise(resolve => setTimeout(resolve, 300));
 
-  const mergedFilters: CustomerFilters = { ...defaultFilters, ...filters };
+  const mergedFilters = sanitizeFilters(filters);
   const cacheKey = getCacheKey('getCustomers', mergedFilters);
   const cached = getCachedData<PaginatedResult<Customer>>(cacheKey);
 
@@ -71,11 +168,10 @@ export async function getCustomers(
     return cached;
   }
 
-  const mockCustomers = generateMockCustomers(50);
-  const filtered = filterMockCustomers(mockCustomers, mergedFilters);
+  const filtered = filterMockCustomers(customersStore, mergedFilters);
 
-  const page = mergedFilters.page || 1;
-  const limit = mergedFilters.limit || 10;
+  const page = mergedFilters.page || DEFAULT_PAGE;
+  const limit = mergedFilters.limit || DEFAULT_LIMIT;
   const start = (page - 1) * limit;
   const end = start + limit;
 
@@ -88,6 +184,7 @@ export async function getCustomers(
   };
 
   setCachedData(cacheKey, result);
+  indexCacheKeyByCustomers(cacheKey, result.data);
   return result;
 }
 
@@ -99,16 +196,8 @@ export async function getCustomers(
 export async function getCustomerById(id: string): Promise<Customer | null> {
   await new Promise(resolve => setTimeout(resolve, 200));
 
-  const mockCustomers = generateMockCustomers(1);
-  const customer = mockCustomers[0];
-  if (!customer) return null;
-
-  return {
-    ...customer,
-    id,
-    avatar: customer.avatar ?? undefined,
-    address: customer.address ?? undefined,
-  };
+  assertValidCustomerId(id);
+  return findCustomerById(id);
 }
 
 /**
@@ -123,28 +212,24 @@ export async function updateCustomer(
 ): Promise<Customer> {
   await new Promise(resolve => setTimeout(resolve, 500));
 
-  cache.clear();
+  assertValidCustomerId(id);
+  validateCustomerUpdate(data);
 
-  const mockCustomers = generateMockCustomers(1);
-  const customer = mockCustomers[0];
+  const customer = findCustomerById(id);
   if (!customer) {
-    throw new Error('Failed to generate mock customer');
+    throw new Error('Customer not found');
   }
 
-  // Build updated customer - only override fields that are explicitly provided
   const updated: Customer = {
     ...customer,
-    id,
-    name: data.name ?? customer.name,
-    email: data.email ?? customer.email,
-    phone: data.phone ?? customer.phone,
+    name: data.name?.trim() || customer.name,
+    email: data.email?.trim() || customer.email,
+    phone: data.phone?.trim() || customer.phone,
     address: data.address ?? customer.address,
-    avatar: customer.avatar,
-    totalBookings: customer.totalBookings,
-    totalSpent: customer.totalSpent,
-    lastBooking: customer.lastBooking,
-    joinedAt: customer.joinedAt,
   };
+
+  customersStore = customersStore.map(item => (item.id === id ? updated : item));
+  invalidateCustomerCaches(id);
 
   return updated;
 }
@@ -155,10 +240,19 @@ export async function updateCustomer(
  * @returns Success boolean
  */
 export async function deleteCustomer(id: string): Promise<boolean> {
-  void id; // parameter used in future implementation
   await new Promise(resolve => setTimeout(resolve, 400));
 
-  cache.clear();
+  assertValidCustomerId(id);
+
+  const before = customersStore.length;
+  customersStore = customersStore.filter(customer => customer.id !== id);
+
+  if (customersStore.length === before) {
+    return false;
+  }
+
+  customerBookings.delete(id);
+  invalidateCustomerCaches(id);
 
   return true;
 }
@@ -169,10 +263,15 @@ export async function deleteCustomer(id: string): Promise<boolean> {
  * @returns Array of booking IDs (to be fetched separately)
  */
 export async function getCustomerBookings(id: string): Promise<string[]> {
-  void id; // parameter used in future implementation
   await new Promise(resolve => setTimeout(resolve, 200));
 
-  return Array.from({ length: Math.floor(Math.random() * 8) + 1 }, (_, i) => String(1000 + i));
+  assertValidCustomerId(id);
+
+  if (!findCustomerById(id)) {
+    return [];
+  }
+
+  return customerBookings.get(id) ?? [];
 }
 
 /**
@@ -183,19 +282,19 @@ export async function getCustomerStats(): Promise<{
   total: number;
   newThisMonth: number;
   activeThisMonth: number;
-  topCustomers: Array<{ id: string; name: string; totalSpent: number }>;
+  topCustomers: Array<{ id: string; name: string; totalSpentCents: number }>;
 }> {
   await new Promise(resolve => setTimeout(resolve, 250));
 
-  const customers = generateMockCustomers(50);
+  const customers = [...customersStore];
 
   return {
     total: customers.length,
     newThisMonth: Math.floor(customers.length * 0.15),
     activeThisMonth: Math.floor(customers.length * 0.6),
     topCustomers: customers
-      .sort((a, b) => b.totalSpent - a.totalSpent)
+      .sort((a, b) => b.totalSpentCents - a.totalSpentCents)
       .slice(0, 5)
-      .map(c => ({ id: c.id, name: c.name, totalSpent: c.totalSpent })),
+      .map(c => ({ id: c.id, name: c.name, totalSpentCents: c.totalSpentCents })),
   };
 }

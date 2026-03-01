@@ -31,6 +31,10 @@ const lastNames = [
 ];
 
 function randomDate(daysBack = 365): string {
+  if (!Number.isFinite(daysBack) || daysBack < 0) {
+    daysBack = 0;
+  }
+
   const date = new Date();
   date.setDate(date.getDate() - Math.floor(Math.random() * daysBack));
   return date.toISOString().split('T')[0] as string;
@@ -41,7 +45,13 @@ function randomPhone(): string {
 }
 
 export function generateMockCustomers(count: number): Customer[] {
-  return Array.from({ length: count }, (_, i) => {
+  if (!Number.isFinite(count) || count <= 0) {
+    return [];
+  }
+
+  const safeCount = Math.min(Math.floor(count), 1000);
+
+  return Array.from({ length: safeCount }, (_, i) => {
     const firstName = firstNames[i % firstNames.length] ?? 'John';
     const lastName = lastNames[i % lastNames.length] ?? 'Smith';
     const bookings = Math.floor(Math.random() * 8) + 1;
@@ -52,7 +62,7 @@ export function generateMockCustomers(count: number): Customer[] {
       email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@email.com`,
       phone: randomPhone(),
       totalBookings: bookings,
-      totalSpent: bookings * (150 + Math.floor(Math.random() * 300)),
+      totalSpentCents: bookings * (150 + Math.floor(Math.random() * 300)) * 100,
       lastBooking: randomDate(30),
       joinedAt: new Date(
         Date.now() - Math.floor(Math.random() * 365) * 24 * 60 * 60 * 1000
@@ -63,7 +73,11 @@ export function generateMockCustomers(count: number): Customer[] {
   });
 }
 
-export function filterMockCustomers(customers: Customer[], filters: CustomerFilters): Customer[] {
+export function filterMockCustomers(customers: Customer[], filters?: CustomerFilters): Customer[] {
+  if (!filters) {
+    return customers;
+  }
+
   return customers.filter(customer => {
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();

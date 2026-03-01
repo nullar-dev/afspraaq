@@ -2,17 +2,18 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { Card, Button } from '@/components/admin/ui';
-import { getBookingStats, type Booking } from '@/lib/admin/services';
+import { getBookingStats, getRevenueTrend, type Booking } from '@/lib/admin/services';
+import { formatUsdFromCents } from '@/lib/admin/currency';
 import { LineChart, BarChart, PieChart } from '@mui/x-charts';
 import { Download, TrendingUp, Users, Calendar, DollarSign } from 'lucide-react';
 
 interface Stats {
   todayCount: number;
-  todayRevenue: number;
+  todayRevenueCents: number;
   weekCount: number;
-  weekRevenue: number;
+  weekRevenueCents: number;
   monthCount: number;
-  monthRevenue: number;
+  monthRevenueCents: number;
   byStatus: Record<Booking['status'], number>;
 }
 
@@ -20,6 +21,7 @@ export function AnalyticsDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [revenueData, setRevenueData] = useState<Array<{ date: string; value: number }>>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -28,16 +30,16 @@ export function AnalyticsDashboard() {
         const bookingStats = await getBookingStats();
         setStats(bookingStats);
 
-        // Generate 30 days of revenue data
-        const days = Array.from({ length: 30 }, (_, i) => {
-          const date = new Date();
-          date.setDate(date.getDate() - (29 - i));
-          return {
-            date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            value: Math.floor(Math.random() * 2000) + 1000,
-          };
-        });
-        setRevenueData(days);
+        const trend = await getRevenueTrend(30);
+        setRevenueData(
+          trend.map(point => ({
+            date: new Date(point.date).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+            }),
+            value: point.valueCents / 100,
+          }))
+        );
       } finally {
         setIsLoading(false);
       }
@@ -46,9 +48,53 @@ export function AnalyticsDashboard() {
     fetchData();
   }, []);
 
-  const handleExport = useCallback(() => {
-    window.alert('Export functionality coming soon!');
-  }, []);
+  const handleExport = useCallback(async () => {
+    if (!stats || isExporting) {
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const summaryRows = [
+        ['Metric', 'Value'],
+        ['Today Count', String(stats.todayCount)],
+        ['Today Revenue (USD)', (stats.todayRevenueCents / 100).toFixed(2)],
+        ['Week Count', String(stats.weekCount)],
+        ['Week Revenue (USD)', (stats.weekRevenueCents / 100).toFixed(2)],
+        ['Month Count', String(stats.monthCount)],
+        ['Month Revenue (USD)', (stats.monthRevenueCents / 100).toFixed(2)],
+      ];
+
+      const statusRows: string[][] = [
+        [],
+        ['Status', 'Count'],
+        ['pending', String(stats.byStatus.pending)],
+        ['confirmed', String(stats.byStatus.confirmed)],
+        ['completed', String(stats.byStatus.completed)],
+        ['cancelled', String(stats.byStatus.cancelled)],
+      ];
+
+      const trendRows: string[][] = [
+        [],
+        ['Date', 'Revenue (USD)'],
+        ...revenueData.map(point => [point.date, point.value.toFixed(2)]),
+      ];
+
+      const csv = [...summaryRows, ...statusRows, ...trendRows]
+        .map(row => row.map(value => `"${value.replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `analytics-report-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [isExporting, revenueData, stats]);
 
   if (isLoading) {
     return (
@@ -78,9 +124,14 @@ export function AnalyticsDashboard() {
           <h1 className="text-2xl sm:text-3xl font-bold">Analytics</h1>
           <p className="text-dark-900 mt-1">Track your business performance and trends.</p>
         </div>
-        <Button onClick={handleExport} variant="secondary" className="flex items-center gap-2">
+        <Button
+          onClick={handleExport}
+          variant="secondary"
+          className="flex items-center gap-2"
+          disabled={isExporting || !stats}
+        >
           <Download className="w-4 h-4" />
-          Export Report
+          {isExporting ? 'Exporting...' : 'Export Report'}
         </Button>
       </div>
 
@@ -90,7 +141,9 @@ export function AnalyticsDashboard() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm text-dark-900 mb-1">Today&apos;s Revenue</p>
-              <p className="text-3xl font-bold">${stats?.todayRevenue.toLocaleString()}</p>
+              <p className="text-3xl font-bold">
+                {formatUsdFromCents(stats?.todayRevenueCents ?? 0)}
+              </p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-gold/10 flex items-center justify-center">
               <DollarSign className="w-6 h-6 text-gold" />
@@ -102,7 +155,9 @@ export function AnalyticsDashboard() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm text-dark-900 mb-1">This Week</p>
-              <p className="text-3xl font-bold">${stats?.weekRevenue.toLocaleString()}</p>
+              <p className="text-3xl font-bold">
+                {formatUsdFromCents(stats?.weekRevenueCents ?? 0)}
+              </p>
               <p className="text-sm text-dark-900 mt-1">{stats?.weekCount} bookings</p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-gold/10 flex items-center justify-center">
@@ -115,7 +170,9 @@ export function AnalyticsDashboard() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm text-dark-900 mb-1">This Month</p>
-              <p className="text-3xl font-bold">${stats?.monthRevenue.toLocaleString()}</p>
+              <p className="text-3xl font-bold">
+                {formatUsdFromCents(stats?.monthRevenueCents ?? 0)}
+              </p>
               <p className="text-sm text-dark-900 mt-1">{stats?.monthCount} bookings</p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-gold/10 flex items-center justify-center">

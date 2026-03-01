@@ -130,7 +130,7 @@ export async function getScheduleStats(date: string): Promise<{
   availableSlots: number;
   bookedSlots: number;
   utilizationRate: number;
-  totalRevenue: number;
+  totalRevenueCents: number;
 }> {
   const schedule = await getScheduleForDate(date);
 
@@ -143,6 +143,6 @@ export async function getScheduleStats(date: string): Promise<{
     availableSlots,
     bookedSlots,
     utilizationRate: Math.round((bookedSlots / totalSlots) * 100),
-    totalRevenue: schedule.totalRevenue,
+    totalRevenueCents: schedule.totalRevenueCents,
   };
 }

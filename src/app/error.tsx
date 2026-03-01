@@ -10,10 +10,6 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Unhandled route error', { message: error.message, digest: error.digest });
-      return;
-    }
     console.error('Unhandled route error', { digest: error.digest });
   }, [error]);
 

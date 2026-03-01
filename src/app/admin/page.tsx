@@ -1,30 +1,6 @@
-import { redirect } from 'next/navigation';
-import AdminApp from '@/components/admin/AdminApp';
-import { getAdminAuthResult } from '@/lib/admin-auth';
-import type { AdminAuthResult } from '@/lib/admin-auth';
+import { mockDashboardData } from '@/lib/admin/mock/dashboard';
+import { Dashboard } from '@/components/admin/dashboard/Dashboard';
 
-export default async function AdminPage() {
-  let auth: AdminAuthResult;
-  try {
-    auth = await getAdminAuthResult();
-  } catch (error) {
-    console.error(
-      'Admin auth check failed:',
-      error instanceof Error ? error.message : 'Unknown error'
-    );
-    redirect('/login?redirect=/admin');
-    return null;
-  }
-
-  if (!auth || auth.status === 'unauthenticated' || auth.status === 'unavailable') {
-    redirect('/login?redirect=/admin');
-    return null;
-  }
-
-  if (auth.status === 'forbidden') {
-    redirect('/');
-    return null;
-  }
-
-  return <AdminApp />;
+export default function AdminDashboardPage() {
+  return <Dashboard data={mockDashboardData} />;
 }

@@ -86,3 +86,42 @@
 - Required env vars for app auth/runtime include `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `ALLOWED_ORIGINS`.
 - Production migrations are executed through `Release Migrate and Deploy`; keep DB secrets environment-scoped.
 - Fail closed on missing security config; do not weaken auth/error messaging to expose internals.
+
+## AI Code Review Push Workflow
+
+**IMPORTANT: Do NOT run `git push` directly. Always use the wrapper script.**
+
+### For ALL LLM Sessions (including opencode):
+
+When user asks to push code, you MUST follow this exact workflow:
+
+1. **Run the script:** `./scripts/review-and-push.sh`
+
+2. **Ask Question 1 using the question tool:**
+   - Header: "Run AI Review"
+   - Question: "Do you want to run an AI Code Review before pushing?"
+   - Options: "Yes, run review" / "No, skip review"
+
+3. **If user says YES:**
+   - Run the reviewer (the script handles this)
+   - After results, ask Question 2
+
+4. **Ask Question 2:**
+   - Header: "Re-run Review"
+   - Question: "The AI found X issues. Do you want to re-run the review?"
+   - Options: "Yes, re-run" / "No, continue"
+
+5. **If user says NO to re-run and issues were found, ask Question 3:**
+   - Header: "Push Anyway"
+   - Question: "Found X issues. Do you want to push anyway?"
+   - Options: "Yes, push anyway" / "No, block push"
+
+6. **Execute based on user's answer:**
+   - If "Yes" → script will run `git push --force-with-lease`
+   - If "No" → exit with code 1
+
+### Escape hatches (for CI/automated environments):
+
+- `CI=true git push` - bypasses the pre-push hook
+- `SKIP_REVIEW=1 git push` - bypasses the pre-push hook
+- `git push --no-verify` - bypasses all hooks

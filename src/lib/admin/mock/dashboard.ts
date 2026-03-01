@@ -44,14 +44,12 @@ export interface ActivityItem {
 // Helper to safely get date string
 function safeDateString(date: Date): string {
   try {
-    return date.toISOString().split('T')[0] ?? date.toISOString();
+    const iso = date.toISOString();
+    const datePart = iso.split('T')[0];
+    return datePart || iso;
   } catch (error) {
     console.error('safeDateString failed:', error);
-    try {
-      return new Date().toISOString().split('T')[0] ?? '2024-01-01';
-    } catch {
-      return '2024-01-01';
-    }
+    return '2024-01-01';
   }
 }
 

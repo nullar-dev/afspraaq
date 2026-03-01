@@ -16,8 +16,6 @@ const Header: React.FC = () => {
   const { state: authState, logout, extendSession } = useAuth();
   const router = useRouter();
 
-  const navItems = [{ label: 'Support' }, { label: 'Dashboard' }, { label: 'Fleet Management' }];
-
   const handleLogout = async () => {
     await logout();
     router.push('/login');
@@ -56,22 +54,6 @@ const Header: React.FC = () => {
             GOLD CONFIGURATOR
           </span>
         </div>
-
-        {/* Desktop Navigation */}
-        <nav className="hidden lg:flex items-center gap-8">
-          {navItems.map(item => (
-            <button
-              key={item.label}
-              type="button"
-              disabled
-              title="Section coming soon"
-              className="relative text-[#B0B0B0] text-sm font-medium transition-colors duration-200 group cursor-not-allowed"
-            >
-              {item.label}
-              <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-gold transition-all duration-200 group-hover:w-full" />
-            </button>
-          ))}
-        </nav>
 
         {/* Actions */}
         <div className="flex items-center gap-2 sm:gap-4">
@@ -132,17 +114,6 @@ const Header: React.FC = () => {
       {mobileMenuOpen && (
         <div className="lg:hidden absolute top-[72px] left-0 right-0 bg-[#0A0A0A]/95 backdrop-blur-xl border-b border-[#2A2A2A] animate-fade-in">
           <nav className="flex flex-col p-4 gap-2">
-            {navItems.map(item => (
-              <button
-                key={item.label}
-                type="button"
-                disabled
-                title="Section coming soon"
-                className="text-[#B0B0B0] py-3 px-4 rounded-lg transition-colors cursor-not-allowed text-left"
-              >
-                {item.label}
-              </button>
-            ))}
             {authState.user && (
               <button
                 onClick={handleLogout}

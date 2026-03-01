@@ -147,66 +147,6 @@ const Login: React.FC = () => {
           <p className="text-[#B0B0B0]">Sign in to continue your booking</p>
         </div>
 
-        <div className="space-y-3 mb-6">
-          <button
-            disabled
-            title="OAuth sign-in coming soon"
-            className="w-full flex items-center justify-center gap-3 px-4 py-3.5 sm:py-4 rounded-xl bg-white text-[#0A0A0A] font-medium opacity-60 cursor-not-allowed"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="currentColor"
-                d="M21.35 11.1h-9.18v2.98h5.27c-.23 1.5-1.13 2.77-2.42 3.62v2.25h3.9c2.28-2.1 3.58-5.2 3.58-8.85c0-.6-.05-1.18-.15-1.75"
-              />
-              <path
-                fill="currentColor"
-                d="M12.17 22c3.24 0 5.95-1.07 7.93-2.9l-3.9-2.25c-1.08.73-2.47 1.16-4.03 1.16c-3.1 0-5.73-2.1-6.66-4.92H1.5v2.33A9.83 9.83 0 0 0 12.17 22"
-              />
-              <path
-                fill="currentColor"
-                d="M5.51 13.09a5.9 5.9 0 0 1 0-3.76V7H1.5a9.83 9.83 0 0 0 0 8.42z"
-              />
-              <path
-                fill="currentColor"
-                d="M12.17 5.99c1.76 0 3.34.6 4.58 1.78l3.43-3.43A9.72 9.72 0 0 0 12.17 2A9.83 9.83 0 0 0 1.5 7l4.01 2.33c.93-2.82 3.56-4.92 6.66-4.92"
-              />
-            </svg>
-            Continue with Google
-          </button>
-          <button
-            disabled
-            title="OAuth sign-in coming soon"
-            className="w-full flex items-center justify-center gap-3 px-4 py-3.5 sm:py-4 rounded-xl bg-[#2F2F2F] text-white font-medium border border-[#3A3A3A] opacity-60 cursor-not-allowed"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="currentColor"
-                d="M2 3h9.5v9.5H2zM12.5 3H22v9.5h-9.5zM2 13.5h9.5V23H2zM12.5 13.5H22V23h-9.5z"
-              />
-            </svg>
-            Continue with Microsoft
-          </button>
-          <button
-            disabled
-            title="OAuth sign-in coming soon"
-            className="w-full flex items-center justify-center gap-3 px-4 py-3.5 sm:py-4 rounded-xl bg-[#000000] text-white font-medium border border-[#2A2A2A] opacity-60 cursor-not-allowed"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="currentColor"
-                d="M16.72 12.86c-.03-2.53 2.07-3.75 2.16-3.8c-1.18-1.72-3-1.95-3.64-1.98c-1.55-.16-3.03.91-3.82.91s-2-.89-3.29-.87c-1.69.03-3.25.98-4.12 2.5c-1.76 3.05-.45 7.55 1.27 10.04c.84 1.21 1.84 2.56 3.16 2.51c1.27-.05 1.75-.82 3.29-.82c1.54 0 1.97.82 3.31.79c1.37-.03 2.23-1.24 3.07-2.45c.97-1.4 1.37-2.76 1.39-2.83c-.03-.01-2.66-1.02-2.69-4zM14.22 5.43c.7-.85 1.17-2.03 1.04-3.2c-1.01.04-2.24.67-2.96 1.52c-.65.75-1.22 1.95-1.07 3.1c1.13.09 2.29-.57 2.99-1.42"
-              />
-            </svg>
-            Continue with Apple
-          </button>
-        </div>
-
-        <div className="flex items-center gap-4 mb-6">
-          <div className="flex-1 h-px bg-[#2A2A2A]" />
-          <span className="text-[#6B6B6B] text-sm">or continue with email</span>
-          <div className="flex-1 h-px bg-[#2A2A2A]" />
-        </div>
-
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
             <Label
@@ -313,14 +253,6 @@ const Login: React.FC = () => {
                 Remember me
               </span>
             </label>
-            <button
-              type="button"
-              disabled
-              className="text-sm text-[#6B6B6B] cursor-not-allowed"
-              title="Password reset coming soon"
-            >
-              Forgot password?
-            </button>
           </div>
 
           <Button

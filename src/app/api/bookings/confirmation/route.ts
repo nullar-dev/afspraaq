@@ -87,7 +87,7 @@ const checkRateLimit = (key: string) => {
   return { limited: false, retryAfterSeconds: 0 };
 };
 
-const parseAllowedOrigins = (request: NextRequest) => {
+const parseAllowedOrigins = () => {
   const configured = process.env.ALLOWED_ORIGINS?.split(',')
     .map(origin => origin.trim())
     .filter(Boolean);
@@ -96,16 +96,12 @@ const parseAllowedOrigins = (request: NextRequest) => {
     return new Set(configured);
   }
 
-  if (process.env.NODE_ENV === 'production') {
-    if (!hasLoggedMissingAllowedOrigins) {
-      console.error('ALLOWED_ORIGINS is required in production for confirmation endpoint.');
-      hasLoggedMissingAllowedOrigins = true;
-    }
-    return new Set<string>();
+  if (!hasLoggedMissingAllowedOrigins) {
+    console.error('ALLOWED_ORIGINS is required for confirmation endpoint.');
+    hasLoggedMissingAllowedOrigins = true;
   }
 
-  const appOrigin = request.nextUrl.origin;
-  return new Set([appOrigin]);
+  return new Set<string>();
 };
 
 const getHeaderOrigin = (request: NextRequest) => request.headers.get('origin');
@@ -117,7 +113,7 @@ export async function POST(request: NextRequest) {
     return errorResponse({ code: 'forbidden_request', message: 'Forbidden' }, 403);
   }
 
-  const allowedOrigins = parseAllowedOrigins(request);
+  const allowedOrigins = parseAllowedOrigins();
   const requestOrigin = getHeaderOrigin(request);
   if (!requestOrigin || !allowedOrigins.has(requestOrigin)) {
     return errorResponse({ code: 'forbidden_origin', message: 'Forbidden' }, 403, undefined, {

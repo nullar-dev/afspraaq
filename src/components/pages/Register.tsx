@@ -5,10 +5,15 @@ import { Mail, Lock, Eye, EyeOff, ArrowRight, Check, Loader2, User, Sparkles } f
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { mapAuthError } from '@/lib/auth-errors';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+
+const SAFE_REGISTER_MESSAGES = new Set([
+  'unable to create account. please try again later.',
+  'too many attempts. please wait and try again.',
+  'password does not meet requirements.',
+]);
 
 const Register: React.FC = () => {
   const router = useRouter();
@@ -34,12 +39,21 @@ const Register: React.FC = () => {
 
   const toSafeRegisterError = (err: unknown) => {
     if (!(err instanceof Error)) return 'Unable to create account. Please try again later.';
-
-    const mapped = mapAuthError(err.message, 'register');
-    if (mapped === 'Unable to create account. Please try again later.') {
-      return `${mapped} If you already have an account, sign in or reset your password.`;
+    const message = err.message.trim();
+    const normalized = message.toLowerCase();
+    if (normalized.includes('too many attempts') || normalized.includes('rate limit')) {
+      return 'Too many attempts. Please wait and try again.';
     }
-    return mapped;
+    if (normalized.includes('password does not meet requirements')) {
+      return 'Password does not meet requirements.';
+    }
+    if (!SAFE_REGISTER_MESSAGES.has(normalized)) {
+      return 'Unable to create account. Please try again later. If you already have an account, sign in or reset your password.';
+    }
+    if (message === 'Unable to create account. Please try again later.') {
+      return `${message} If you already have an account, sign in or reset your password.`;
+    }
+    return message;
   };
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {

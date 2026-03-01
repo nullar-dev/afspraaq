@@ -1,39 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuthResult } from '@/lib/admin-auth';
+import { NextRequest } from 'next/server';
+import { authorizeAdmin, json } from '@/app/api/admin/_lib/auth';
+import { logAdminReadAudit } from '@/app/api/admin/_lib/audit';
 import { createClient } from '@/utils/supabase/server';
 
 const ALLOWED_SORT_FIELDS = new Set(['id', 'email', 'role', 'created_at', 'updated_at']);
 const MAX_IDS_FILTER = 100;
 
-const json = (body: unknown, status = 200) =>
-  NextResponse.json(body, {
-    status,
-    headers: {
-      'Cache-Control': 'private, no-store, max-age=0',
-    },
-  });
-
-const authorizeAdmin = async () => {
-  const auth = await getAdminAuthResult();
-  if (auth.status === 'unavailable') {
-    return json(
-      { error: { code: 'auth_unavailable', message: 'Authentication unavailable' } },
-      503
-    );
-  }
-  if (auth.status === 'unauthenticated') {
-    return json({ error: { code: 'unauthenticated', message: 'Unauthorized' } }, 401);
-  }
-  if (auth.status === 'forbidden') {
-    return json({ error: { code: 'forbidden', message: 'Forbidden' } }, 403);
-  }
-  return null;
-};
-
 export async function GET(request: NextRequest) {
-  const unauthorizedResponse = await authorizeAdmin();
-  if (unauthorizedResponse) {
-    return unauthorizedResponse;
+  const adminAuth = await authorizeAdmin();
+  if ('response' in adminAuth) {
+    return adminAuth.response;
   }
 
   const supabase = await createClient();
@@ -70,6 +46,16 @@ export async function GET(request: NextRequest) {
       return json({ error: { code: 'query_failed', message: 'Unable to fetch profiles' } }, 500);
     }
 
+    await logAdminReadAudit({
+      supabase,
+      actorUserId: adminAuth.auth.user.id,
+      resource: 'profiles',
+      action: 'get_many',
+      metadata: {
+        idsCount: ids.length,
+      },
+    });
+
     return json({ data: data ?? [] });
   }
 
@@ -94,6 +80,21 @@ export async function GET(request: NextRequest) {
   if (error) {
     return json({ error: { code: 'query_failed', message: 'Unable to fetch profiles' } }, 500);
   }
+
+  await logAdminReadAudit({
+    supabase,
+    actorUserId: adminAuth.auth.user.id,
+    resource: 'profiles',
+    action: 'list',
+    metadata: {
+      page,
+      perPage,
+      sortField,
+      sortOrder,
+      returnedCount: Array.isArray(data) ? data.length : 0,
+      total: count ?? 0,
+    },
+  });
 
   return json({
     data: data ?? [],

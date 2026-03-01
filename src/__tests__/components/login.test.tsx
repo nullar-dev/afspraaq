@@ -119,7 +119,7 @@ describe('Login Page', () => {
     expect(screen.getByText(/account created successfully/i)).toBeTruthy();
   });
 
-  it('shows auth error on failed login', async () => {
+  it('shows generic auth error for untrusted login error text', async () => {
     mockLogin.mockRejectedValueOnce(new Error('Invalid email or password. Please try again.'));
 
     const { default: LoginPage } = await import('../../app/login/page');
@@ -131,7 +131,7 @@ describe('Login Page', () => {
     await user.click(screen.getByRole('button', { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/invalid email or password/i)).toBeTruthy();
+      expect(screen.getByText(/unable to sign in\. please try again\./i)).toBeTruthy();
     });
   });
 

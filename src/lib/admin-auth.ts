@@ -9,11 +9,13 @@ interface AdminUser {
   role: ProfileRole;
 }
 
+type AdminForbiddenReason = 'profile_lookup_failed' | 'profile_missing' | 'role_mismatch';
+
 export type AdminAuthResult =
   | { status: 'ok'; user: AdminUser }
   | { status: 'unavailable' }
   | { status: 'unauthenticated' }
-  | { status: 'forbidden' };
+  | { status: 'forbidden'; reason: AdminForbiddenReason };
 
 export const getAdminAuthResult = async (): Promise<AdminAuthResult> => {
   const supabase = await createClient();
@@ -35,8 +37,16 @@ export const getAdminAuthResult = async (): Promise<AdminAuthResult> => {
     .eq('id', user.id)
     .maybeSingle();
 
-  if (error || !profile || profile.role !== 'admin') {
-    return { status: 'forbidden' };
+  if (error) {
+    return { status: 'forbidden', reason: 'profile_lookup_failed' };
+  }
+
+  if (!profile) {
+    return { status: 'forbidden', reason: 'profile_missing' };
+  }
+
+  if (profile.role !== 'admin') {
+    return { status: 'forbidden', reason: 'role_mismatch' };
   }
 
   return {

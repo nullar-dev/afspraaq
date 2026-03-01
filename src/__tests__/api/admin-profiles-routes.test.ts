@@ -21,7 +21,7 @@ describe('admin profiles routes', () => {
   });
 
   it('returns 403 from list endpoint for non-admin users', async () => {
-    mockGetAdminAuthResult.mockResolvedValue({ status: 'forbidden' });
+    mockGetAdminAuthResult.mockResolvedValue({ status: 'forbidden', reason: 'role_mismatch' });
 
     const request = new NextRequest('http://localhost:3000/api/admin/profiles');
     const response = await listProfiles(request);

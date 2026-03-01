@@ -35,7 +35,7 @@ describe('admin page guard', () => {
   });
 
   it('redirects to home when forbidden', async () => {
-    mockGetAdminAuthResult.mockResolvedValue({ status: 'forbidden' });
+    mockGetAdminAuthResult.mockResolvedValue({ status: 'forbidden', reason: 'role_mismatch' });
     const { default: AdminPage } = await import('@/app/admin/page');
     await AdminPage();
     expect(mockRedirect).toHaveBeenCalledWith('/');

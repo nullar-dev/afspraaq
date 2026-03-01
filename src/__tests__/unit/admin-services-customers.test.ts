@@ -73,7 +73,7 @@ describe('Customers Service', () => {
 
   describe('getCustomerById', () => {
     it('returns a customer with the specified ID', async () => {
-      const id = 'CUST-TEST-123';
+      const id = 'CUST-1000';
       const result = await getCustomerById(id);
 
       expect(result).not.toBeNull();
@@ -82,23 +82,21 @@ describe('Customers Service', () => {
       expect(result!.email).toBeDefined();
     });
 
-    it('always returns a customer for any ID (mock behavior)', async () => {
-      // Note: Mock implementation generates data for any ID
-      // Real implementation should return null for non-existent customers
-      const result = await getCustomerById('NON-EXISTENT');
-      expect(result).not.toBeNull();
-      expect(result!.id).toBe('NON-EXISTENT');
+    it('returns null for non-existent customer IDs', async () => {
+      const result = await getCustomerById('CUST-NON-EXISTENT');
+      expect(result).toBeNull();
     });
 
     it('returns customer with all required fields', async () => {
-      const result = await getCustomerById('CUST-TEST');
+      const result = await getCustomerById('CUST-1000');
 
+      expect(result).not.toBeNull();
       expect(result).toHaveProperty('id');
       expect(result).toHaveProperty('name');
       expect(result).toHaveProperty('email');
       expect(result).toHaveProperty('phone');
       expect(result).toHaveProperty('totalBookings');
-      expect(result).toHaveProperty('totalSpent');
+      expect(result).toHaveProperty('totalSpentCents');
       expect(result).toHaveProperty('lastBooking');
       expect(result).toHaveProperty('joinedAt');
       expect(result).toHaveProperty('avatar');
@@ -108,7 +106,7 @@ describe('Customers Service', () => {
 
   describe('updateCustomer', () => {
     it('updates customer name successfully', async () => {
-      const id = 'CUST-TEST-123';
+      const id = 'CUST-1000';
       const data: Partial<CustomerUpdateData> = { name: 'Updated Name' };
 
       const result = await updateCustomer(id, data);
@@ -118,7 +116,7 @@ describe('Customers Service', () => {
     });
 
     it('updates customer email successfully', async () => {
-      const id = 'CUST-TEST-123';
+      const id = 'CUST-1000';
       const data: Partial<CustomerUpdateData> = { email: 'updated@example.com' };
 
       const result = await updateCustomer(id, data);
@@ -127,7 +125,7 @@ describe('Customers Service', () => {
     });
 
     it('updates customer phone successfully', async () => {
-      const id = 'CUST-TEST-123';
+      const id = 'CUST-1000';
       const data: Partial<CustomerUpdateData> = { phone: '+1 (555) 999-8888' };
 
       const result = await updateCustomer(id, data);
@@ -136,7 +134,7 @@ describe('Customers Service', () => {
     });
 
     it('updates multiple fields', async () => {
-      const id = 'CUST-TEST-123';
+      const id = 'CUST-1000';
       const data: Partial<CustomerUpdateData> = {
         name: 'New Name',
         email: 'new@example.com',
@@ -151,32 +149,32 @@ describe('Customers Service', () => {
     });
 
     it('clears cache after update', async () => {
-      const id = 'CUST-TEST-123';
+      const id = 'CUST-1000';
       const data: Partial<CustomerUpdateData> = { name: 'Updated' };
 
-      await getCustomers();
+      const before = await getCustomerById(id);
+      expect(before).not.toBeNull();
       await updateCustomer(id, data);
 
-      const result = await getCustomers();
-      expect(result.data).toBeInstanceOf(Array);
+      const after = await getCustomerById(id);
+      expect(after?.name).toBe('Updated');
     });
 
-    it('always generates a customer for any ID (mock behavior)', async () => {
-      // Note: Mock implementation generates data for any ID
-      // Real implementation should throw for non-existent customers
+    it('throws for non-existent customer updates', async () => {
       const data: Partial<CustomerUpdateData> = { name: 'Updated Name' };
-      const result = await updateCustomer('NON-EXISTENT', data);
-
-      expect(result).not.toBeNull();
-      expect(result.id).toBe('NON-EXISTENT');
-      expect(result.name).toBe('Updated Name');
+      await expect(updateCustomer('CUST-NON-EXISTENT', data)).rejects.toThrow('Customer not found');
     });
   });
 
   describe('deleteCustomer', () => {
     it('returns true on successful deletion', async () => {
-      const result = await deleteCustomer('CUST-TEST-123');
+      const result = await deleteCustomer('CUST-1001');
       expect(result).toBe(true);
+    });
+
+    it('returns false when customer does not exist', async () => {
+      const result = await deleteCustomer('CUST-DOES-NOT-EXIST');
+      expect(result).toBe(false);
     });
 
     it('clears cache after deletion', async () => {
@@ -190,19 +188,23 @@ describe('Customers Service', () => {
 
   describe('getCustomerBookings', () => {
     it('returns array of booking IDs', async () => {
-      const result = await getCustomerBookings('CUST-TEST-123');
+      const customer = await getCustomerById('CUST-1000');
 
-      expect(result).toBeInstanceOf(Array);
-      expect(result.length).toBeGreaterThan(0);
-      expect(result.length).toBeLessThanOrEqual(8);
+      expect(customer).not.toBeNull();
+
+      const bookings = await getCustomerBookings('CUST-1000');
+
+      expect(bookings).toBeInstanceOf(Array);
+      expect(bookings.length).toBeGreaterThanOrEqual(0);
+      expect(bookings.length).toBeLessThanOrEqual(customer!.totalBookings);
     });
 
     it('returns valid booking ID format', async () => {
-      const result = await getCustomerBookings('CUST-TEST-123');
+      const result = await getCustomerBookings('CUST-1000');
 
       result.forEach(id => {
         expect(typeof id).toBe('string');
-        expect(Number.parseInt(id)).toBeGreaterThanOrEqual(1000);
+        expect(id.startsWith('BK-')).toBe(true);
       });
     });
   });
@@ -233,19 +235,19 @@ describe('Customers Service', () => {
       result.topCustomers.forEach(customer => {
         expect(customer).toHaveProperty('id');
         expect(customer).toHaveProperty('name');
-        expect(customer).toHaveProperty('totalSpent');
-        expect(customer.totalSpent).toBeGreaterThanOrEqual(0);
+        expect(customer).toHaveProperty('totalSpentCents');
+        expect(customer.totalSpentCents).toBeGreaterThanOrEqual(0);
       });
     });
 
-    it('returns customers sorted by totalSpent', async () => {
+    it('returns customers sorted by totalSpentCents', async () => {
       const result = await getCustomerStats();
       const customers = result.topCustomers;
 
       for (let i = 1; i < customers.length; i++) {
         const prev = customers[i - 1]!;
         const curr = customers[i]!;
-        expect(prev.totalSpent).toBeGreaterThanOrEqual(curr.totalSpent);
+        expect(prev.totalSpentCents).toBeGreaterThanOrEqual(curr.totalSpentCents);
       }
     });
   });

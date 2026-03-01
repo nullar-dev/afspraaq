@@ -21,7 +21,13 @@
 
 'use server';
 
-import type { Booking, BookingFilters, BookingUpdateData, PaginatedResult } from './types';
+import type {
+  Booking,
+  BookingCreateData,
+  BookingFilters,
+  BookingUpdateData,
+  PaginatedResult,
+} from './types';
 import {
   generateMockBookings,
   generateMockBookingStats,
@@ -30,12 +36,24 @@ import {
 
 // Cache duration in milliseconds (5 minutes)
 const CACHE_DURATION = 5 * 60 * 1000;
+const MAX_CACHE_SIZE = 100;
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 10;
+const MAX_LIMIT = 1000;
+
+const VALID_STATUSES: Booking['status'][] = ['pending', 'confirmed', 'completed', 'cancelled'];
+const VALID_SERVICES: Booking['service'][] = ['Essential', 'Premium', 'Ultimate'];
+const VALID_VEHICLES: Booking['vehicle'][] = ['Sedan', 'SUV', 'Crossover', 'Luxury'];
 
 // Simple in-memory cache
 const cache = new Map<string, { data: unknown; timestamp: number }>();
+let bookingsStore = generateMockBookings(150);
 
 function getCacheKey(operation: string, params: BookingFilters | Record<string, unknown>): string {
-  return `${operation}:${JSON.stringify(params)}`;
+  const normalized = Object.entries(params)
+    .filter(([, value]) => value !== undefined)
+    .sort(([left], [right]) => left.localeCompare(right));
+  return `${operation}:${JSON.stringify(normalized)}`;
 }
 
 function getCachedData<T>(key: string): T | null {
@@ -48,7 +66,103 @@ function getCachedData<T>(key: string): T | null {
 }
 
 function setCachedData<T>(key: string, data: T): void {
+  cleanupExpiredCache();
+  if (cache.size >= MAX_CACHE_SIZE) {
+    const oldestKey = cache.keys().next().value;
+    if (oldestKey) {
+      cache.delete(oldestKey);
+    }
+  }
+
   cache.set(key, { data, timestamp: Date.now() });
+}
+
+function cleanupExpiredCache(): void {
+  const now = Date.now();
+  for (const [key, value] of cache.entries()) {
+    if (now - value.timestamp >= CACHE_DURATION) {
+      cache.delete(key);
+    }
+  }
+}
+
+function assertValidBookingId(id: string): void {
+  if (!/^BK-[A-Za-z0-9-]+$/.test(id)) {
+    throw new Error('Invalid booking ID format');
+  }
+}
+
+function sanitizeFilters(filters: Partial<BookingFilters>): BookingFilters {
+  const status = VALID_STATUSES.includes(filters.status as Booking['status'])
+    ? (filters.status as Booking['status'])
+    : undefined;
+  const service = VALID_SERVICES.includes(filters.service as Booking['service'])
+    ? (filters.service as Booking['service'])
+    : undefined;
+  const vehicle = VALID_VEHICLES.includes(filters.vehicle as Booking['vehicle'])
+    ? (filters.vehicle as Booking['vehicle'])
+    : undefined;
+
+  const pageCandidate = Number(filters.page);
+  const limitCandidate = Number(filters.limit);
+  const page = Number.isInteger(pageCandidate) && pageCandidate > 0 ? pageCandidate : DEFAULT_PAGE;
+  const limit =
+    Number.isInteger(limitCandidate) && limitCandidate > 0
+      ? Math.min(limitCandidate, MAX_LIMIT)
+      : DEFAULT_LIMIT;
+
+  const search = filters.search?.trim() ? filters.search.trim() : undefined;
+
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+  const dateFrom =
+    filters.dateFrom && datePattern.test(filters.dateFrom) ? filters.dateFrom : undefined;
+  const dateTo = filters.dateTo && datePattern.test(filters.dateTo) ? filters.dateTo : undefined;
+
+  return {
+    ...defaultFilters,
+    status,
+    service,
+    vehicle,
+    search,
+    page,
+    limit,
+    dateFrom,
+    dateTo,
+  };
+}
+
+function findBookingById(id: string): Booking | null {
+  return bookingsStore.find(booking => booking.id === id) ?? null;
+}
+
+function validateUpdateData(data: Partial<BookingUpdateData>): void {
+  if (data.status !== undefined && !VALID_STATUSES.includes(data.status)) {
+    throw new Error('Invalid booking status');
+  }
+  if (data.service !== undefined && !VALID_SERVICES.includes(data.service)) {
+    throw new Error('Invalid booking service');
+  }
+  if (data.vehicle !== undefined && !VALID_VEHICLES.includes(data.vehicle)) {
+    throw new Error('Invalid booking vehicle');
+  }
+  if (
+    data.priceCents !== undefined &&
+    (!Number.isInteger(data.priceCents) || data.priceCents < 0)
+  ) {
+    throw new Error('Invalid booking price');
+  }
+}
+
+function invalidateAllCaches(): void {
+  cache.clear();
+}
+
+function nextBookingId(): string {
+  const ids = bookingsStore
+    .map(booking => Number.parseInt(booking.id.replace('BK-', ''), 10))
+    .filter(value => Number.isInteger(value));
+  const maxId = ids.length > 0 ? Math.max(...ids) : 999;
+  return `BK-${maxId + 1}`;
 }
 
 const defaultFilters: BookingFilters = {
@@ -73,7 +187,7 @@ export async function getBookings(
   // Simulate network delay
   await new Promise(resolve => setTimeout(resolve, 300));
 
-  const mergedFilters: BookingFilters = { ...defaultFilters, ...filters };
+  const mergedFilters = sanitizeFilters(filters);
   const cacheKey = getCacheKey('getBookings', mergedFilters);
   const cached = getCachedData<PaginatedResult<Booking>>(cacheKey);
 
@@ -85,11 +199,10 @@ export async function getBookings(
   // const start = ((filters.page || 1) - 1) * (filters.limit || 10);
   // const end = start + (filters.limit || 10) - 1;
 
-  const mockBookings = generateMockBookings(50);
-  const filtered = filterMockBookings(mockBookings, mergedFilters);
+  const filtered = filterMockBookings(bookingsStore, mergedFilters);
 
-  const page = mergedFilters.page || 1;
-  const limit = mergedFilters.limit || 10;
+  const page = mergedFilters.page || DEFAULT_PAGE;
+  const limit = mergedFilters.limit || DEFAULT_LIMIT;
   const start = (page - 1) * limit;
   const end = start + limit;
 
@@ -113,22 +226,8 @@ export async function getBookings(
 export async function getBookingById(id: string): Promise<Booking | null> {
   await new Promise(resolve => setTimeout(resolve, 200));
 
-  // TODO: Replace with Supabase query
-  // const { data, error } = await supabase
-  //   .from('bookings')
-  //   .select('*')
-  //   .eq('id', id)
-  //   .single()
-
-  const mockBookings = generateMockBookings(1);
-  const booking = mockBookings[0];
-  if (!booking) return null;
-
-  return {
-    ...booking,
-    id,
-    notes: booking.notes ?? undefined,
-  };
+  assertValidBookingId(id);
+  return findBookingById(id);
 }
 
 /**
@@ -143,38 +242,74 @@ export async function updateBooking(
 ): Promise<Booking> {
   await new Promise(resolve => setTimeout(resolve, 500));
 
-  // TODO: Replace with Supabase update
-  // const { data: updated, error } = await supabase
-  //   .from('bookings')
-  //   .update({ ...data, updated_at: new Date().toISOString() })
-  //   .eq('id', id)
-  //   .select()
-  //   .single()
+  assertValidBookingId(id);
+  validateUpdateData(data);
 
-  // Invalidate related caches
-  cache.clear();
-
-  const mockBookings = generateMockBookings(1);
-  const booking = mockBookings[0];
+  const booking = findBookingById(id);
   if (!booking) {
-    throw new Error('Failed to generate mock booking');
+    throw new Error('Booking not found');
   }
 
-  // Build updated booking - only override fields that are explicitly provided
   const updated: Booking = {
     ...booking,
-    id,
     status: data.status ?? booking.status,
     date: data.date ?? booking.date,
     time: data.time ?? booking.time,
     service: data.service ?? booking.service,
     vehicle: data.vehicle ?? booking.vehicle,
     notes: data.notes ?? booking.notes,
-    price: data.price ?? booking.price,
+    priceCents: data.priceCents ?? booking.priceCents,
     updatedAt: new Date().toISOString(),
   };
 
+  bookingsStore = bookingsStore.map(item => (item.id === id ? updated : item));
+  invalidateAllCaches();
+
   return updated;
+}
+
+export async function createBooking(data: BookingCreateData): Promise<Booking> {
+  await new Promise(resolve => setTimeout(resolve, 450));
+
+  const trimmedName = data.customerName.trim();
+  const trimmedEmail = data.customerEmail.trim();
+
+  if (!trimmedName) {
+    throw new Error('Customer name is required');
+  }
+  if (!trimmedEmail || !trimmedEmail.includes('@')) {
+    throw new Error('Valid customer email is required');
+  }
+  if (!VALID_SERVICES.includes(data.service)) {
+    throw new Error('Invalid booking service');
+  }
+  if (!VALID_VEHICLES.includes(data.vehicle)) {
+    throw new Error('Invalid booking vehicle');
+  }
+
+  const status = data.status && VALID_STATUSES.includes(data.status) ? data.status : 'pending';
+  const createdAt = new Date().toISOString();
+
+  const booking: Booking = {
+    id: nextBookingId(),
+    customerName: trimmedName,
+    customerEmail: trimmedEmail,
+    customerPhone: data.customerPhone?.trim() || undefined,
+    service: data.service,
+    vehicle: data.vehicle,
+    date: data.date,
+    time: data.time,
+    status,
+    priceCents: data.priceCents ?? 0,
+    notes: data.notes?.trim() || undefined,
+    createdAt,
+    updatedAt: createdAt,
+  };
+
+  bookingsStore = [booking, ...bookingsStore];
+  invalidateAllCaches();
+
+  return booking;
 }
 
 /**
@@ -183,18 +318,18 @@ export async function updateBooking(
  * @returns Success boolean
  */
 export async function deleteBooking(id: string): Promise<boolean> {
-  void id; // parameter used in future implementation
   await new Promise(resolve => setTimeout(resolve, 400));
 
-  // TODO: Replace with Supabase delete
-  // const { error } = await supabase
-  //   .from('bookings')
-  //   .delete()
-  //   .eq('id', id)
+  assertValidBookingId(id);
 
-  // Invalidate related caches
-  cache.clear();
+  const initialLength = bookingsStore.length;
+  bookingsStore = bookingsStore.filter(booking => booking.id !== id);
 
+  if (bookingsStore.length === initialLength) {
+    return false;
+  }
+
+  invalidateAllCaches();
   return true;
 }
 
@@ -204,19 +339,52 @@ export async function deleteBooking(id: string): Promise<boolean> {
  */
 export async function getBookingStats(): Promise<{
   todayCount: number;
-  todayRevenue: number;
+  todayRevenueCents: number;
   weekCount: number;
-  weekRevenue: number;
+  weekRevenueCents: number;
   monthCount: number;
-  monthRevenue: number;
+  monthRevenueCents: number;
   byStatus: Record<Booking['status'], number>;
 }> {
   await new Promise(resolve => setTimeout(resolve, 250));
 
-  // TODO: Replace with Supabase aggregation query
-  // Consider using Supabase's group_by or count
+  const stats = generateMockBookingStats();
+  const byStatus = bookingsStore.reduce<Record<Booking['status'], number>>(
+    (acc, booking) => {
+      acc[booking.status] += 1;
+      return acc;
+    },
+    { pending: 0, confirmed: 0, completed: 0, cancelled: 0 }
+  );
 
-  return generateMockBookingStats();
+  return {
+    ...stats,
+    byStatus,
+  };
+}
+
+export async function getRevenueTrend(
+  days = 30
+): Promise<Array<{ date: string; valueCents: number }>> {
+  const safeDays = Number.isInteger(days) && days > 0 ? Math.min(days, 365) : 30;
+  await new Promise(resolve => setTimeout(resolve, 200));
+
+  const trend = new Map<string, number>();
+  for (let i = safeDays - 1; i >= 0; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const key = date.toISOString().split('T')[0] as string;
+    trend.set(key, 0);
+  }
+
+  for (const booking of bookingsStore) {
+    if (!trend.has(booking.date) || booking.status === 'cancelled') {
+      continue;
+    }
+    trend.set(booking.date, (trend.get(booking.date) ?? 0) + booking.priceCents);
+  }
+
+  return Array.from(trend.entries()).map(([date, valueCents]) => ({ date, valueCents }));
 }
 
 /**
@@ -236,7 +404,7 @@ export async function exportBookingsToCSV(filters: Partial<BookingFilters> = {})
     'Date',
     'Time',
     'Status',
-    'Price',
+    'Price (USD)',
   ];
 
   const rows = bookings.map(b => [
@@ -248,7 +416,7 @@ export async function exportBookingsToCSV(filters: Partial<BookingFilters> = {})
     b.date,
     b.time,
     b.status,
-    b.price,
+    (b.priceCents / 100).toFixed(2),
   ]);
 
   return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   createEphemeralUser,
   deleteEphemeralUser,
-  hasStagingAdminEnv,
+  requireStagingAdminEnv,
 } from './helpers/staging-auth';
 
 const signIn = async (page: import('@playwright/test').Page, email: string, password: string) => {
@@ -13,7 +13,9 @@ const signIn = async (page: import('@playwright/test').Page, email: string, pass
 };
 
 test.describe('Admin Customers CRUD', () => {
-  test.skip(!hasStagingAdminEnv(), 'Staging admin env vars are required for admin E2E');
+  test.beforeAll(() => {
+    requireStagingAdminEnv();
+  });
 
   test('admin can view customers list', async ({ page }) => {
     const adminUser = await createEphemeralUser('admin');
@@ -46,10 +48,7 @@ test.describe('Admin Customers CRUD', () => {
       // Type in search box
       const searchInput = page.getByPlaceholder(/Search by name/i);
       await searchInput.fill('Smith');
-      await searchInput.press('Enter');
-
-      // Wait for debounce
-      await page.waitForTimeout(400);
+      await expect.poll(() => new URL(page.url()).searchParams.get('search')).toBe('Smith');
 
       // Search should not error
       await expect(page.getByRole('heading', { name: 'Customers' })).toBeVisible();
@@ -68,11 +67,20 @@ test.describe('Admin Customers CRUD', () => {
       await expect(page.getByRole('heading', { name: 'Customers' })).toBeVisible();
 
       // Click view button on first customer
+      const firstRow = page.locator('tbody tr').first();
+      const expectedName = (
+        await firstRow.locator('td').first().locator('p').first().textContent()
+      )?.trim();
+
       const viewButton = page.getByTitle('View').first();
       await viewButton.click();
 
       // Modal should open with customer name
       await expect(page.getByRole('heading').nth(1)).toBeVisible();
+      if (expectedName) {
+        await expect(page.getByRole('heading', { name: expectedName })).toBeVisible();
+      }
+      await expect(page.getByText(/Email/i)).toBeVisible();
     } finally {
       await deleteEphemeralUser(adminUser.id);
     }

@@ -16,6 +16,16 @@ const serviceRoleKey = process.env.E2E_SUPABASE_SERVICE_ROLE_KEY || '';
 
 export const hasStagingAdminEnv = () => Boolean(supabaseUrl && serviceRoleKey);
 
+export const requireStagingAdminEnv = () => {
+  if (hasStagingAdminEnv()) {
+    return;
+  }
+
+  throw new Error(
+    'Missing required staging env for E2E: E2E_SUPABASE_URL and E2E_SUPABASE_SERVICE_ROLE_KEY'
+  );
+};
+
 const getAdminClient = () => {
   if (!hasStagingAdminEnv()) {
     throw new Error('Missing E2E_SUPABASE_URL or E2E_SUPABASE_SERVICE_ROLE_KEY');

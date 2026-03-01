@@ -4,7 +4,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -126,6 +126,11 @@ export function SearchInput({
   className,
 }: SearchInputProps) {
   const [inputValue, setInputValue] = useState(value);
+  const onChangeRef = useRef(onChange);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   useEffect(() => {
     setInputValue(value);
@@ -133,11 +138,11 @@ export function SearchInput({
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      onChange(inputValue);
+      onChangeRef.current(inputValue);
     }, debounceMs);
 
     return () => clearTimeout(timer);
-  }, [inputValue, debounceMs, onChange]);
+  }, [inputValue, debounceMs]);
 
   return (
     <div className={cn('relative', className)}>
@@ -181,28 +186,35 @@ export function Pagination({
   showInfo = true,
   totalItems,
 }: PaginationProps) {
+  if (!Number.isFinite(totalPages) || totalPages <= 0) {
+    return null;
+  }
+
+  const safeCurrentPage = Math.min(Math.max(currentPage, 1), totalPages);
   const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
   const visiblePages = pages.slice(
-    Math.max(0, currentPage - 3),
-    Math.min(totalPages, currentPage + 2)
+    Math.max(0, safeCurrentPage - 3),
+    Math.min(totalPages, safeCurrentPage + 2)
   );
 
   return (
     <div className="flex items-center justify-between gap-4">
       {showInfo && totalItems && (
         <span className="text-sm text-dark-900">
-          Showing {Math.min((currentPage - 1) * 10 + 1, totalItems)} -{' '}
-          {Math.min(currentPage * 10, totalItems)} of {totalItems} results
+          Showing {Math.min((safeCurrentPage - 1) * 10 + 1, totalItems)} -{' '}
+          {Math.min(safeCurrentPage * 10, totalItems)} of {totalItems} results
         </span>
       )}
 
       <div className="flex items-center gap-1">
         <button
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1}
+          onClick={() => onPageChange(safeCurrentPage - 1)}
+          disabled={safeCurrentPage === 1}
           className={cn(
             'p-2 rounded-lg transition-colors',
-            currentPage === 1 ? 'text-dark-900 cursor-not-allowed' : 'hover:bg-dark-200 text-white'
+            safeCurrentPage === 1
+              ? 'text-dark-900 cursor-not-allowed'
+              : 'hover:bg-dark-200 text-white'
           )}
         >
           <ChevronLeft className="w-4 h-4" />
@@ -214,7 +226,7 @@ export function Pagination({
             onClick={() => onPageChange(page)}
             className={cn(
               'min-w-[32px] h-8 px-2 rounded-lg text-sm font-medium transition-colors',
-              page === currentPage
+              page === safeCurrentPage
                 ? 'bg-gold text-dark'
                 : 'hover:bg-dark-200 text-dark-900 hover:text-white'
             )}
@@ -224,11 +236,11 @@ export function Pagination({
         ))}
 
         <button
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
+          onClick={() => onPageChange(safeCurrentPage + 1)}
+          disabled={safeCurrentPage === totalPages}
           className={cn(
             'p-2 rounded-lg transition-colors',
-            currentPage === totalPages
+            safeCurrentPage === totalPages
               ? 'text-dark-900 cursor-not-allowed'
               : 'hover:bg-dark-200 text-white'
           )}
@@ -253,6 +265,9 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = 'md
   useEffect(() => {
     if (!isOpen) return;
 
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose();
@@ -260,7 +275,10 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = 'md
     };
 
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = originalOverflow;
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -343,17 +361,45 @@ export function Table({ headers, children, isLoading, className }: TableProps) {
   );
 }
 
-interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+interface SelectProps {
   options: Array<{ value: string; label: string }>;
   label?: string;
+  value?: string;
+  onChange?: React.ChangeEventHandler<HTMLSelectElement>;
+  disabled?: boolean;
+  required?: boolean;
+  name?: string;
+  id?: string;
+  autoFocus?: boolean;
+  className?: string;
 }
 
-export function Select({ options, label, className, ...props }: SelectProps) {
+export function Select({
+  options,
+  label,
+  className,
+  value,
+  onChange,
+  disabled,
+  required,
+  name,
+  id,
+  autoFocus,
+}: SelectProps) {
+  const selectValue = value ?? '';
+
   return (
     <div className={className}>
       {label && <label className="block text-sm font-medium text-dark-900 mb-1">{label}</label>}
       <select
-        {...props}
+        value={onChange ? selectValue : undefined}
+        defaultValue={onChange ? undefined : selectValue}
+        onChange={onChange}
+        disabled={disabled}
+        required={required}
+        name={name}
+        id={id}
+        autoFocus={autoFocus}
         className={cn(
           'w-full px-3 py-2 rounded-xl bg-dark-200 border border-dark-400',
           'text-white',

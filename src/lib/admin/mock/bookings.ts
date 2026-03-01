@@ -74,7 +74,7 @@ export function generateMockBookings(count: number): Booking[] {
       date: randomDate(),
       time: randomTime(),
       status: randomItem(statuses),
-      price: Math.floor(basePrice * vehicleMultiplier),
+      priceCents: Math.floor(basePrice * vehicleMultiplier * 100),
       notes: Math.random() > 0.7 ? 'Special instructions here' : undefined,
       createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date().toISOString(),
@@ -103,11 +103,11 @@ export function filterMockBookings(bookings: Booking[], filters: BookingFilters)
 
 export function generateMockBookingStats(): {
   todayCount: number;
-  todayRevenue: number;
+  todayRevenueCents: number;
   weekCount: number;
-  weekRevenue: number;
+  weekRevenueCents: number;
   monthCount: number;
-  monthRevenue: number;
+  monthRevenueCents: number;
   byStatus: Record<Booking['status'], number>;
 } {
   const today = generateMockBookings(8);
@@ -116,11 +116,17 @@ export function generateMockBookingStats(): {
 
   return {
     todayCount: today.filter(b => b.status !== 'cancelled').length,
-    todayRevenue: today.filter(b => b.status !== 'cancelled').reduce((sum, b) => sum + b.price, 0),
+    todayRevenueCents: today
+      .filter(b => b.status !== 'cancelled')
+      .reduce((sum, b) => sum + b.priceCents, 0),
     weekCount: week.filter(b => b.status !== 'cancelled').length,
-    weekRevenue: week.filter(b => b.status !== 'cancelled').reduce((sum, b) => sum + b.price, 0),
+    weekRevenueCents: week
+      .filter(b => b.status !== 'cancelled')
+      .reduce((sum, b) => sum + b.priceCents, 0),
     monthCount: month.filter(b => b.status !== 'cancelled').length,
-    monthRevenue: month.filter(b => b.status !== 'cancelled').reduce((sum, b) => sum + b.price, 0),
+    monthRevenueCents: month
+      .filter(b => b.status !== 'cancelled')
+      .reduce((sum, b) => sum + b.priceCents, 0),
     byStatus: {
       pending: month.filter(b => b.status === 'pending').length,
       confirmed: month.filter(b => b.status === 'confirmed').length,

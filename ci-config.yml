@@ -123,7 +123,7 @@ e2e:
   # Trace settings (on-first-retry, on-always, off)
   trace: 'on-first-retry'
 
-  # Reuse existing server (useful for local development)
+  # Reuse existing server (useful for local runs)
   reuse_server: true
 
 # -----------------------------------------------------------------------------

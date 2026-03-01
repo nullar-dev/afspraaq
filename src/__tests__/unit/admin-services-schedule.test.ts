@@ -47,9 +47,9 @@ describe('Schedule Service', () => {
           (slot): slot is typeof slot & { booking: NonNullable<typeof slot.booking> } =>
             slot.booking !== undefined
         )
-        .reduce((sum, slot) => sum + slot.booking.price, 0);
+        .reduce((sum, slot) => sum + slot.booking.priceCents, 0);
 
-      expect(result.totalRevenue).toBe(revenue);
+      expect(result.totalRevenueCents).toBe(revenue);
     });
 
     it('caches results for identical dates', async () => {
@@ -88,7 +88,7 @@ describe('Schedule Service', () => {
         expect(day.slots).toBeInstanceOf(Array);
         expect(day.slots.length).toBeGreaterThan(0);
         expect(typeof day.totalBookings).toBe('number');
-        expect(typeof day.totalRevenue).toBe('number');
+        expect(typeof day.totalRevenueCents).toBe('number');
       });
     });
 
@@ -146,7 +146,7 @@ describe('Schedule Service', () => {
       expect(result).toHaveProperty('availableSlots');
       expect(result).toHaveProperty('bookedSlots');
       expect(result).toHaveProperty('utilizationRate');
-      expect(result).toHaveProperty('totalRevenue');
+      expect(result).toHaveProperty('totalRevenueCents');
     });
 
     it('returns consistent slot counts', async () => {
@@ -168,7 +168,7 @@ describe('Schedule Service', () => {
       const date = '2026-03-01';
       const result = await getScheduleStats(date);
 
-      expect(result.totalRevenue).toBeGreaterThanOrEqual(0);
+      expect(result.totalRevenueCents).toBeGreaterThanOrEqual(0);
     });
   });
 });

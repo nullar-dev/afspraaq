@@ -82,7 +82,7 @@ describe('Bookings Service', () => {
 
   describe('getBookingById', () => {
     it('returns a booking with the specified ID', async () => {
-      const id = 'BK-TEST-123';
+      const id = 'BK-1000';
       const result = await getBookingById(id);
 
       expect(result).not.toBeNull();
@@ -91,17 +91,15 @@ describe('Bookings Service', () => {
       expect(result!.customerEmail).toBeDefined();
     });
 
-    it('always returns a booking for any ID (mock behavior)', async () => {
-      // Note: Mock implementation generates data for any ID
-      // Real implementation should return null for non-existent bookings
-      const result = await getBookingById('NON-EXISTENT');
-      expect(result).not.toBeNull();
-      expect(result!.id).toBe('NON-EXISTENT');
+    it('returns null for non-existent booking IDs', async () => {
+      const result = await getBookingById('BK-NON-EXISTENT');
+      expect(result).toBeNull();
     });
 
     it('returns booking with all required fields', async () => {
-      const result = await getBookingById('BK-TEST');
+      const result = await getBookingById('BK-1000');
 
+      expect(result).not.toBeNull();
       expect(result).toHaveProperty('id');
       expect(result).toHaveProperty('customerName');
       expect(result).toHaveProperty('customerEmail');
@@ -111,7 +109,7 @@ describe('Bookings Service', () => {
       expect(result).toHaveProperty('date');
       expect(result).toHaveProperty('time');
       expect(result).toHaveProperty('status');
-      expect(result).toHaveProperty('price');
+      expect(result).toHaveProperty('priceCents');
       expect(result).toHaveProperty('notes');
       expect(result).toHaveProperty('createdAt');
       expect(result).toHaveProperty('updatedAt');
@@ -120,7 +118,7 @@ describe('Bookings Service', () => {
 
   describe('updateBooking', () => {
     it('updates booking status successfully', async () => {
-      const id = 'BK-TEST-123';
+      const id = 'BK-1000';
       const data: Partial<BookingUpdateData> = { status: 'completed' };
 
       const result = await updateBooking(id, data);
@@ -130,40 +128,43 @@ describe('Bookings Service', () => {
     });
 
     it('updates multiple fields', async () => {
-      const id = 'BK-TEST-123';
+      const id = 'BK-1000';
       const data: Partial<BookingUpdateData> = {
         status: 'confirmed',
-        price: 500,
+        priceCents: 50000,
         notes: 'Updated notes',
       };
 
       const result = await updateBooking(id, data);
 
       expect(result.status).toBe('confirmed');
-      expect(result.price).toBe(500);
+      expect(result.priceCents).toBe(50000);
       expect(result.notes).toBe('Updated notes');
     });
 
     it('clears cache after update', async () => {
-      const id = 'BK-TEST-123';
+      const id = 'BK-1000';
       const data: Partial<BookingUpdateData> = { status: 'completed' };
 
-      // Get initial bookings
-      await getBookings();
+      const before = await getBookingById(id);
+      expect(before).not.toBeNull();
 
-      // Update a booking
       await updateBooking(id, data);
 
-      // Subsequent requests should not use stale cache
-      const result = await getBookings();
-      expect(result.data).toBeInstanceOf(Array);
+      const after = await getBookingById(id);
+      expect(after?.status).toBe('completed');
     });
   });
 
   describe('deleteBooking', () => {
     it('returns true on successful deletion', async () => {
-      const result = await deleteBooking('BK-TEST-123');
+      const result = await deleteBooking('BK-1001');
       expect(result).toBe(true);
+    });
+
+    it('returns false when booking does not exist', async () => {
+      const result = await deleteBooking('BK-DOES-NOT-EXIST');
+      expect(result).toBe(false);
     });
 
     it('clears cache after deletion', async () => {
@@ -180,11 +181,11 @@ describe('Bookings Service', () => {
       const result = await getBookingStats();
 
       expect(result).toHaveProperty('todayCount');
-      expect(result).toHaveProperty('todayRevenue');
+      expect(result).toHaveProperty('todayRevenueCents');
       expect(result).toHaveProperty('weekCount');
-      expect(result).toHaveProperty('weekRevenue');
+      expect(result).toHaveProperty('weekRevenueCents');
       expect(result).toHaveProperty('monthCount');
-      expect(result).toHaveProperty('monthRevenue');
+      expect(result).toHaveProperty('monthRevenueCents');
       expect(result).toHaveProperty('byStatus');
     });
 
@@ -192,11 +193,11 @@ describe('Bookings Service', () => {
       const result = await getBookingStats();
 
       expect(result.todayCount).toBeGreaterThanOrEqual(0);
-      expect(result.todayRevenue).toBeGreaterThanOrEqual(0);
+      expect(result.todayRevenueCents).toBeGreaterThanOrEqual(0);
       expect(result.weekCount).toBeGreaterThanOrEqual(0);
-      expect(result.weekRevenue).toBeGreaterThanOrEqual(0);
+      expect(result.weekRevenueCents).toBeGreaterThanOrEqual(0);
       expect(result.monthCount).toBeGreaterThanOrEqual(0);
-      expect(result.monthRevenue).toBeGreaterThanOrEqual(0);
+      expect(result.monthRevenueCents).toBeGreaterThanOrEqual(0);
     });
 
     it('returns status distribution', async () => {
@@ -213,13 +214,13 @@ describe('Bookings Service', () => {
       expect(result.byStatus.completed).toBeGreaterThanOrEqual(0);
       expect(result.byStatus.cancelled).toBeGreaterThanOrEqual(0);
 
-      // Total should be 150 (mock generates 150 bookings for month stats)
+      const allBookings = await getBookings({ page: 1, limit: 1000 });
       const totalByStatus =
         result.byStatus.pending +
         result.byStatus.confirmed +
         result.byStatus.completed +
         result.byStatus.cancelled;
-      expect(totalByStatus).toBe(150);
+      expect(totalByStatus).toBe(allBookings.total);
     });
   });
 

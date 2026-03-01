@@ -12,6 +12,7 @@ import {
 } from '@/lib/admin/services';
 import { Eye, Edit, Trash2, UserPlus, Mail, Phone } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { formatUsdFromCents } from '@/lib/admin/currency';
 
 export function CustomersList() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export function CustomersList() {
     totalPages: 1,
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<CustomerFilters>({
     search: searchParams.get('search') || undefined,
     minBookings: undefined,
@@ -37,9 +39,12 @@ export function CustomersList() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [editForm, setEditForm] = useState<Partial<CustomerUpdateData>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchCustomers = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const result = await getCustomers(filters);
       setCustomers(result.data);
@@ -48,6 +53,9 @@ export function CustomersList() {
         total: result.total,
         totalPages: result.totalPages,
       });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch customers');
+      setCustomers([]);
     } finally {
       setIsLoading(false);
     }
@@ -93,20 +101,37 @@ export function CustomersList() {
   }, []);
 
   const handleSaveEdit = useCallback(async () => {
-    if (!selectedCustomer) return;
+    if (!selectedCustomer || isSaving) return;
 
-    await updateCustomer(selectedCustomer.id, editForm);
-    setIsEditModalOpen(false);
-    fetchCustomers();
-  }, [selectedCustomer, editForm, fetchCustomers]);
+    setIsSaving(true);
+    try {
+      await updateCustomer(selectedCustomer.id, editForm);
+      setIsEditModalOpen(false);
+      await fetchCustomers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update customer');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [selectedCustomer, editForm, fetchCustomers, isSaving]);
 
   const handleConfirmDelete = useCallback(async () => {
-    if (!selectedCustomer) return;
+    if (!selectedCustomer || isDeleting) return;
 
-    await deleteCustomer(selectedCustomer.id);
-    setIsDeleteModalOpen(false);
-    fetchCustomers();
-  }, [selectedCustomer, fetchCustomers]);
+    setIsDeleting(true);
+    try {
+      const deleted = await deleteCustomer(selectedCustomer.id);
+      if (!deleted) {
+        throw new Error('Customer could not be deleted');
+      }
+      setIsDeleteModalOpen(false);
+      await fetchCustomers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete customer');
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [selectedCustomer, fetchCustomers, isDeleting]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -123,10 +148,17 @@ export function CustomersList() {
       </div>
 
       {/* Search */}
+      {error && (
+        <Card className="p-4 border-red-500/40">
+          <p className="text-red-300 text-sm">{error}</p>
+        </Card>
+      )}
+
       <Card className="p-4">
         <SearchInput
           value={filters.search || ''}
           onChange={value => handleFilterChange('search', value || undefined)}
+          debounceMs={300}
           placeholder="Search by name, email, or phone..."
         />
       </Card>
@@ -165,7 +197,9 @@ export function CustomersList() {
               <td className="py-3 px-4">
                 <Badge variant="default">{customer.totalBookings} bookings</Badge>
               </td>
-              <td className="py-3 px-4 font-medium">${customer.totalSpent.toLocaleString()}</td>
+              <td className="py-3 px-4 font-medium">
+                {formatUsdFromCents(customer.totalSpentCents)}
+              </td>
               <td className="py-3 px-4 text-dark-900">{customer.lastBooking}</td>
               <td className="py-3 px-4">
                 <div className="flex items-center gap-2">
@@ -247,7 +281,9 @@ export function CustomersList() {
               </div>
               <div>
                 <p className="text-sm text-dark-900">Total Spent</p>
-                <p className="font-medium">${selectedCustomer.totalSpent.toLocaleString()}</p>
+                <p className="font-medium">
+                  {formatUsdFromCents(selectedCustomer.totalSpentCents)}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-dark-900">Last Booking</p>
@@ -286,7 +322,9 @@ export function CustomersList() {
             <Button variant="ghost" onClick={() => setIsEditModalOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveEdit}>Save Changes</Button>
+            <Button onClick={handleSaveEdit} disabled={isSaving}>
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </Button>
           </>
         }
       >
@@ -303,6 +341,10 @@ export function CustomersList() {
                     name: e.target.value,
                   }))
                 }
+                required
+                minLength={2}
+                maxLength={100}
+                pattern="^[A-Za-z0-9 ]+$"
                 className="w-full px-3 py-2 rounded-xl bg-dark-200 border border-dark-400 text-white focus:outline-none focus:border-gold"
               />
             </div>
@@ -318,6 +360,7 @@ export function CustomersList() {
                     email: e.target.value,
                   }))
                 }
+                required
                 className="w-full px-3 py-2 rounded-xl bg-dark-200 border border-dark-400 text-white focus:outline-none focus:border-gold"
               />
             </div>
@@ -333,6 +376,7 @@ export function CustomersList() {
                     phone: e.target.value,
                   }))
                 }
+                pattern="^\+?[0-9()\-\s]{7,20}$"
                 className="w-full px-3 py-2 rounded-xl bg-dark-200 border border-dark-400 text-white focus:outline-none focus:border-gold"
               />
             </div>
@@ -350,8 +394,8 @@ export function CustomersList() {
             <Button variant="ghost" onClick={() => setIsDeleteModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="danger" onClick={handleConfirmDelete}>
-              Delete
+            <Button variant="danger" onClick={handleConfirmDelete} disabled={isDeleting}>
+              {isDeleting ? 'Deleting...' : 'Delete'}
             </Button>
           </>
         }

@@ -9,6 +9,7 @@ import {
   type ScheduleDay,
   type Booking,
 } from '@/lib/admin/services';
+import { formatUsdFromCents } from '@/lib/admin/currency';
 import {
   ChevronLeft,
   ChevronRight,
@@ -45,9 +46,12 @@ export function ScheduleView() {
   const [view, setView] = useState<'day' | 'week'>('day');
   const [isLoading, setIsLoading] = useState(true);
   const [weekSchedule, setWeekSchedule] = useState<ScheduleDay[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [updatingBookingIds, setUpdatingBookingIds] = useState<Set<string>>(new Set());
 
   const fetchSchedule = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
     try {
       if (view === 'day') {
         const dateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -58,6 +62,8 @@ export function ScheduleView() {
         const result = await getWeekSchedule(weekStart);
         setWeekSchedule(result);
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load schedule');
     } finally {
       setIsLoading(false);
     }
@@ -81,10 +87,26 @@ export function ScheduleView() {
 
   const handleStatusUpdate = useCallback(
     async (bookingId: string, status: Booking['status']) => {
-      await quickUpdateStatus(bookingId, status);
-      fetchSchedule();
+      if (updatingBookingIds.has(bookingId)) {
+        return;
+      }
+
+      setUpdatingBookingIds(prev => new Set(prev).add(bookingId));
+
+      try {
+        await quickUpdateStatus(bookingId, status);
+        await fetchSchedule();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to update booking status');
+      } finally {
+        setUpdatingBookingIds(prev => {
+          const next = new Set(prev);
+          next.delete(bookingId);
+          return next;
+        });
+      }
     },
-    [fetchSchedule]
+    [fetchSchedule, updatingBookingIds]
   );
 
   const getSlotBooking = useCallback(
@@ -159,6 +181,12 @@ export function ScheduleView() {
       </Card>
 
       {/* Schedule View */}
+      {error && (
+        <Card className="p-4 border-red-500/40">
+          <p className="text-red-300 text-sm">{error}</p>
+        </Card>
+      )}
+
       {view === 'day' ? (
         <Card className="p-6">
           {isLoading ? (
@@ -188,13 +216,15 @@ export function ScheduleView() {
                             <Badge variant={booking.status}>{booking.status}</Badge>
                           </div>
                           <p className="text-sm text-dark-900">
-                            {booking.service} • {booking.vehicle} • ${booking.price}
+                            {booking.service} • {booking.vehicle} •{' '}
+                            {formatUsdFromCents(booking.priceCents)}
                           </p>
                         </div>
 
                         <div className="flex items-center gap-2">
                           {booking.status !== 'completed' && (
                             <button
+                              disabled={isLoading || updatingBookingIds.has(booking.id)}
                               onClick={() => handleStatusUpdate(booking.id, 'completed')}
                               className="p-2 rounded-lg hover:bg-green-500/20 text-green-400 transition-colors"
                               title="Mark as completed"
@@ -204,6 +234,7 @@ export function ScheduleView() {
                           )}
                           {booking.status !== 'cancelled' && (
                             <button
+                              disabled={isLoading || updatingBookingIds.has(booking.id)}
                               onClick={() => handleStatusUpdate(booking.id, 'cancelled')}
                               className="p-2 rounded-lg hover:bg-red-500/20 text-red-400 transition-colors"
                               title="Cancel booking"
@@ -261,7 +292,7 @@ export function ScheduleView() {
 
                   <div className="pt-3 border-t border-dark-400 text-center">
                     <p className="text-xs text-dark-900">{day.totalBookings} bookings</p>
-                    <p className="text-xs text-gold">${day.totalRevenue}</p>
+                    <p className="text-xs text-gold">{formatUsdFromCents(day.totalRevenueCents)}</p>
                   </div>
                 </div>
               ))}
@@ -282,7 +313,9 @@ export function ScheduleView() {
         </Card>
         <Card className="p-4">
           <p className="text-sm text-dark-900">Revenue</p>
-          <p className="text-2xl font-bold text-green-400">${schedule?.totalRevenue || 0}</p>
+          <p className="text-2xl font-bold text-green-400">
+            {formatUsdFromCents(schedule?.totalRevenueCents ?? 0)}
+          </p>
         </Card>
       </div>
     </div>

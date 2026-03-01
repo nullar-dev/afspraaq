@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   createEphemeralUser,
   deleteEphemeralUser,
-  hasStagingAdminEnv,
+  requireStagingAdminEnv,
 } from './helpers/staging-auth';
 
 const login = async (page: import('@playwright/test').Page, email: string, password: string) => {
@@ -14,7 +14,9 @@ const login = async (page: import('@playwright/test').Page, email: string, passw
 };
 
 test.describe('Staging session and logout', () => {
-  test.skip(!hasStagingAdminEnv(), 'Staging Supabase admin env is required for this suite');
+  test.beforeAll(() => {
+    requireStagingAdminEnv();
+  });
 
   test('session persists after reload, logout redirects, and protected routes lock again', async ({
     page,

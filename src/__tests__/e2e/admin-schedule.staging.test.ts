@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   createEphemeralUser,
   deleteEphemeralUser,
-  hasStagingAdminEnv,
+  requireStagingAdminEnv,
 } from './helpers/staging-auth';
 
 const signIn = async (page: import('@playwright/test').Page, email: string, password: string) => {
@@ -13,7 +13,9 @@ const signIn = async (page: import('@playwright/test').Page, email: string, pass
 };
 
 test.describe('Admin Schedule Page', () => {
-  test.skip(!hasStagingAdminEnv(), 'Staging admin env vars are required for admin E2E');
+  test.beforeAll(() => {
+    requireStagingAdminEnv();
+  });
 
   test('admin can view schedule page', async ({ page }) => {
     const adminUser = await createEphemeralUser('admin');

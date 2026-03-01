@@ -49,7 +49,9 @@ function safeDateString(date: Date): string {
     return datePart || iso;
   } catch (error) {
     console.error('safeDateString failed:', error);
-    return '2024-01-01';
+    const fallbackIso = new Date().toISOString();
+    const fallbackDatePart = fallbackIso.split('T')[0];
+    return fallbackDatePart || fallbackIso;
   }
 }
 

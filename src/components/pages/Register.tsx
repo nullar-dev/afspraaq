@@ -10,9 +10,9 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 
 const SAFE_REGISTER_MESSAGES = new Set([
-  'Unable to create account. Please try again later.',
-  'Too many attempts. Please wait and try again.',
-  'Password does not meet requirements.',
+  'unable to create account. please try again later.',
+  'too many attempts. please wait and try again.',
+  'password does not meet requirements.',
 ]);
 
 const Register: React.FC = () => {
@@ -47,7 +47,7 @@ const Register: React.FC = () => {
     if (normalized.includes('password does not meet requirements')) {
       return 'Password does not meet requirements.';
     }
-    if (!SAFE_REGISTER_MESSAGES.has(message)) {
+    if (!SAFE_REGISTER_MESSAGES.has(normalized)) {
       return 'Unable to create account. Please try again later. If you already have an account, sign in or reset your password.';
     }
     if (message === 'Unable to create account. Please try again later.') {

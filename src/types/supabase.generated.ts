@@ -1,9 +1,39 @@
-// Verified with migration 008: no schema shape changes (security-only migration).
+// Verified with migration 010: includes admin_read_audit_logs audit table and policy hardening.
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export interface Database {
   public: {
     Tables: {
+      admin_read_audit_logs: {
+        Row: {
+          id: number;
+          actor_user_id: string | null;
+          resource: string;
+          action: string;
+          target_id: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          actor_user_id?: string | null;
+          resource: string;
+          action: string;
+          target_id?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          actor_user_id?: string | null;
+          resource?: string;
+          action?: string;
+          target_id?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;

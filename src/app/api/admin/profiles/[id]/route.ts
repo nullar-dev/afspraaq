@@ -32,7 +32,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   }
 
   await logAdminReadAudit({
-    supabase: supabase as never,
+    supabase,
     actorUserId: adminAuth.auth.user.id,
     resource: 'profiles',
     action: 'get_one',

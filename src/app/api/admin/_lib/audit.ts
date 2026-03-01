@@ -1,9 +1,5 @@
 interface SupabaseLike {
-  from: (table: string) => {
-    insert?: (values: Record<string, unknown> | Record<string, unknown>[]) => Promise<{
-      error: { message?: string } | null;
-    }>;
-  };
+  from: (table: string) => unknown;
 }
 
 interface AdminReadAuditInput {
@@ -25,7 +21,14 @@ export const logAdminReadAudit = async ({
 }: AdminReadAuditInput) => {
   try {
     const query = supabase.from('admin_read_audit_logs');
-    if (!query || typeof query.insert !== 'function') return;
+    if (
+      !query ||
+      typeof query !== 'object' ||
+      !('insert' in query) ||
+      typeof query.insert !== 'function'
+    ) {
+      return;
+    }
 
     const { error } = await query.insert({
       actor_user_id: actorUserId,

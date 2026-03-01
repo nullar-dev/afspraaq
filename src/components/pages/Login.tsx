@@ -19,6 +19,14 @@ const ALLOWED_REDIRECTS = new Set([
   '/booking/payment',
 ]);
 
+const SAFE_LOGIN_MESSAGES = new Set([
+  'Invalid email or password.',
+  'Please verify your email before signing in.',
+  'Too many attempts. Please wait a moment and try again.',
+  'Unable to sign in right now. Please try again later.',
+  'Authentication is unavailable.',
+]);
+
 const Login: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -57,7 +65,9 @@ const Login: React.FC = () => {
 
   const toSafeLoginError = (err: unknown) => {
     if (!(err instanceof Error)) return 'Unable to sign in. Please try again.';
-    return err.message;
+    const message = err.message.trim();
+    if (SAFE_LOGIN_MESSAGES.has(message)) return message;
+    return 'Unable to sign in. Please try again.';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

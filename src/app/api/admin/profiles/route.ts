@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     }
 
     await logAdminReadAudit({
-      supabase: supabase as never,
+      supabase,
       actorUserId: adminAuth.auth.user.id,
       resource: 'profiles',
       action: 'get_many',
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
   }
 
   await logAdminReadAudit({
-    supabase: supabase as never,
+    supabase,
     actorUserId: adminAuth.auth.user.id,
     resource: 'profiles',
     action: 'list',

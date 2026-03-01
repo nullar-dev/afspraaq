@@ -1,166 +1,28 @@
 #!/bin/bash
 
-# Pre-push hook with NullarAI Code Review
-# Interactive version using /dev/tty for user prompts
+# Pre-push hook - BLOCKS push and directs user to run review script
+# This ensures every push goes through AI code review
 
-# Colors for output
+# Colors
 RED='\033[0;31m'
-GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+GREEN='\033[0;32m'
 NC='\033[0m'
 
-# Check if MINIMAX_API_KEY is set
-if [ -z "$MINIMAX_API_KEY" ]; then
-    echo -e "${YELLOW}⚠️  MINIMAX_API_KEY not set, skipping NullarAI${NC}"
-    exit 0
-fi
+echo ""
+echo "============================================"
+echo -e "${RED}🔴 REVIEW REQUIRED${NC}"
+echo "============================================"
+echo ""
+echo "You must run the AI code review before pushing."
+echo ""
+echo "Run this command instead:"
+echo -e "  ${BLUE}./scripts/review-and-push.sh${NC}"
+echo ""
+echo "Or set CI=true or SKIP_REVIEW=1 to bypass (not recommended)."
+echo ""
+echo "============================================"
+echo ""
 
-# Check if node is available
-if ! command -v node &> /dev/null; then
-    echo -e "${YELLOW}⚠️  Node.js not found, skipping NullarAI${NC}"
-    exit 0
-fi
-
-# Check if /dev/tty is available (for interactive prompts)
-# Try to read from it - some environments have /dev/tty but it's not readable
-TTY_AVAILABLE=0
-if [ -e /dev/tty ] && echo "" > /dev/tty 2>/dev/null; then
-    TTY_AVAILABLE=1
-fi
-
-# Get remote and branch info
-remote=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null | cut -d'/' -f1)
-branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
-
-if [ -z "$remote" ] || [ -z "$branch" ]; then
-    remote="origin"
-    branch=$(git rev-parse --abbrev-ref HEAD)
-fi
-
-commit_range="${remote}/${branch}..HEAD"
-
-# Check if there are any changes to review
-changes=$(git diff --name-only $commit_range 2>/dev/null)
-if [ -z "$changes" ]; then
-    echo -e "${GREEN}✅ No changes to review, proceeding with push${NC}"
-    exit 0
-fi
-
-echo -e "${BLUE}🤖 NullarAI Code Review${NC}"
-echo "================================"
-
-# Ask: "Run AI Code Review? y/n"
-if [ $TTY_AVAILABLE -eq 1 ]; then
-    echo ""
-    echo -n "Run AI Code Review? [y/n]: " 
-    read -r run_review < /dev/tty
-else
-    # Fallback: auto-run if no tty
-    run_review="y"
-fi
-
-# If user says no, proceed with push
-if [ "$run_review" != "y" ] && [ "$run_review" != "Y" ]; then
-    echo -e "${BLUE}⏭️  Skipping review, proceeding with push${NC}"
-    exit 0
-fi
-
-# Re-run loop
-while true; do
-    echo ""
-    echo -e "${BLUE}🔍 Running review on ${commit_range}...${NC}"
-    echo ""
-    
-    # Run the reviewer
-    review_output=$(node scripts/ai-code-reviewer.js "$commit_range" 2>&1)
-    review_exit_code=$?
-    
-    # Check if review failed (exit code 2 = API error)
-    if [ $review_exit_code -eq 2 ]; then
-        echo "$review_output"
-        echo ""
-        echo -e "${RED}❌ AI review failed (API error)${NC}"
-        if [ $TTY_AVAILABLE -eq 1 ]; then
-            echo -n "Push anyways? [y/n]: "
-            read -r push_anyway < /dev/tty
-        else
-            push_anyway="n"
-        fi
-        if [ "$push_anyway" != "y" ] && [ "$push_anyway" != "Y" ]; then
-            echo -e "${RED}❌ Push blocked due to review failure${NC}"
-            exit 1
-        fi
-        echo -e "${YELLOW}⚠️  Pushing despite review failure (user override)${NC}"
-        exit 0
-    fi
-    
-    # Check for other errors (script missing, crash, etc.)
-    if [ $review_exit_code -ne 0 ] && [ $review_exit_code -ne 1 ]; then
-        echo "$review_output"
-        echo ""
-        echo -e "${RED}❌ AI review error (exit code: ${review_exit_code})${NC}"
-        if [ $TTY_AVAILABLE -eq 1 ]; then
-            echo -n "Push anyways? [y/n]: "
-            read -r push_anyway < /dev/tty
-        else
-            push_anyway="n"
-        fi
-        if [ "$push_anyway" != "y" ] && [ "$push_anyway" != "Y" ]; then
-            echo -e "${RED}❌ Push blocked due to review error${NC}"
-            exit 1
-        fi
-        echo -e "${YELLOW}⚠️  Pushing despite error (user override)${NC}"
-        exit 0
-    fi
-    
-    echo "$review_output"
-    
-    # Extract issue count from output - look for "Total:" followed by a number
-    total_issues=0
-    if echo "$review_output" | grep -qE "Total:[[:space:]]+[0-9]+"; then
-        parsed=$(echo "$review_output" | grep -oE "Total:[[:space:]]+[0-9]+" | grep -oE "[0-9]+" | head -1)
-        # Validate it's a number
-        if [[ "$parsed" =~ ^[0-9]+$ ]]; then
-            total_issues=$parsed
-        fi
-    fi
-    
-    # Ask: "Re-run review? y/n"
-    echo ""
-    if [ $TTY_AVAILABLE -eq 1 ]; then
-        echo -n "Re-run review? [y/n]: "
-        read -r rerun_review < /dev/tty
-    else
-        rerun_review="n"
-    fi
-    
-    if [ "$rerun_review" != "y" ] && [ "$rerun_review" != "Y" ]; then
-        break
-    fi
-done
-
-# After re-run loop - check if we should push
-if [ "$total_issues" -gt 0 ]; then
-    echo ""
-    echo -e "${YELLOW}⚠️  Found ${total_issues} issue(s)${NC}"
-    
-    if [ $TTY_AVAILABLE -eq 1 ]; then
-        echo -n "Push anyways? [y/n]: "
-        read -r push_anyway < /dev/tty
-    else
-        push_anyway="n"
-    fi
-    
-    if [ "$push_anyway" != "y" ] && [ "$push_anyway" != "Y" ]; then
-        echo -e "${RED}❌ Push blocked due to ${total_issues} issue(s)${NC}"
-        exit 1
-    fi
-    
-    echo -e "${YELLOW}⚠️  Pushing despite issues (user override)${NC}"
-    exit 0
-else
-    echo ""
-    echo -e "${GREEN}✅ No issues found, proceeding with push${NC}"
-    exit 0
-fi
+exit 1

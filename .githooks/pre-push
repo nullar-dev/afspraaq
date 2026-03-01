@@ -1,7 +1,13 @@
 #!/bin/bash
 
-# Pre-push hook - BLOCKS push and directs user to run review script
-# This ensures every push goes through AI code review
+# Pre-push hook - Blocks git push and requires review script
+# Can be bypassed with CI=true or SKIP_REVIEW=1
+
+# Check for CI/automation bypass
+if [ "$CI" = "true" ] || [ "$CI" = "1" ] || [ "$SKIP_REVIEW" = "1" ]; then
+    # CI/automated environment - allow push
+    exit 0
+fi
 
 # Colors
 RED='\033[0;31m'
@@ -20,7 +26,11 @@ echo ""
 echo "Run this command instead:"
 echo -e "  ${BLUE}./scripts/review-and-push.sh${NC}"
 echo ""
-echo "Or set CI=true or SKIP_REVIEW=1 to bypass (not recommended)."
+echo "This script will:"
+echo "  1. Ask: Run AI Code Review? (y/n)"
+echo "  2. Run MiniMax AI review"
+echo "  3. Ask: Re-run review? (y/n)"
+echo "  4. Ask: Push anyways? (y/n)"
 echo ""
 echo "============================================"
 echo ""

@@ -55,6 +55,11 @@ const Login: React.FC = () => {
     }
   }, []);
 
+  const toSafeLoginError = (err: unknown) => {
+    if (!(err instanceof Error)) return 'Unable to sign in. Please try again.';
+    return err.message;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const nextFieldErrors: { email: string | null; password: string | null } = {
@@ -99,7 +104,7 @@ const Login: React.FC = () => {
       router.push(safeRedirect);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to sign in. Please try again.');
+      setError(toSafeLoginError(err));
     } finally {
       setIsSubmitting(false);
     }

@@ -34,7 +34,7 @@ describe('admin session route', () => {
   });
 
   it('returns 403 when user is not admin', async () => {
-    mockGetAdminAuthResult.mockResolvedValue({ status: 'forbidden' });
+    mockGetAdminAuthResult.mockResolvedValue({ status: 'forbidden', reason: 'role_mismatch' });
 
     const response = await GET();
     const body = await response.json();

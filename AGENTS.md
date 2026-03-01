@@ -20,6 +20,7 @@
 - `E2E_MODE=production_smoke pnpm playwright test src/__tests__/e2e`: non-mutating smoke lane.
 - `E2E_MODE=staging_full pnpm playwright test src/__tests__/e2e`: full mutating staging lane.
 - Stack baseline: **Node 24.x**, **pnpm 10.x**.
+- `e2e-staging.yml` runs by `workflow_dispatch` and nightly `schedule` (02:00 UTC); it is not push-triggered by default.
 
 ## Coding Style & Naming Conventions
 
@@ -47,6 +48,12 @@
 - Never run destructive or role-mutating E2E flows directly against production.
 - For admin E2E, prefer ephemeral admin users created per run and removed in teardown; do not rely on long-lived static admin credentials.
 - For new features, apply the same split by default unless explicitly overridden in writing.
+- Staging E2E GitHub Environment requirements:
+  - Variables: `STAGING_APP_BASE_URL`, `STAGING_SUPABASE_URL`
+  - Secret: `STAGING_SUPABASE_SERVICE_ROLE_KEY`
+- Playwright server behavior:
+  - For local base URLs (`localhost`/`127.0.0.1`), Playwright may manage `webServer`.
+  - For remote staging/prod URLs, `webServer` must remain disabled to avoid URL/port collision failures.
 
 ## Supabase & Migration Discipline (Security-First)
 

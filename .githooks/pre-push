@@ -12,32 +12,103 @@ NC='\033[0m' # No Color
 
 # Check if MINIMAX_API_KEY is set
 if [ -z "$MINIMAX_API_KEY" ]; then
-    echo -e "${YELLOW}⚠️  MINIMAX_API_KEY not set, skipping AI review${NC}"
+    echo -e "${YELLOW}⚠️  MINIMAX_API_KEY not set, skipping NullarAI${NC}"
     exit 0
 fi
 
 # Check if node is available
 if ! command -v node &> /dev/null; then
-    echo -e "${YELLOW}⚠️  Node.js not found, skipping AI review${NC}"
+    echo -e "${YELLOW}⚠️  Node.js not found, skipping NullarAI${NC}"
     exit 0
 fi
 
-# Check if running in interactive terminal
-if [ ! -t 0 ]; then
-    # Non-interactive mode: auto-run review without prompts
-    echo -e "${BLUE}🤖 NullarNullarAI Code Review (non-interactive mode)${NC}"
-    echo "============================================="
+# Get remote and branch info
+remote=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null | cut -d'/' -f1)
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+if [ -z "$remote" ] || [ -z "$branch" ]; then
+    remote="origin"
+    branch=$(git rev-parse --abbrev-ref HEAD)
+fi
+
+commit_range="${remote}/${branch}..HEAD"
+
+# Check if we can use /dev/tty for interactive prompts
+if [ -e /dev/tty ]; then
+    # Interactive mode - use /dev/tty
+    exec < /dev/tty
     
-    # Get remote and branch info
-    remote=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null | cut -d'/' -f1)
-    branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+    echo -e "${BLUE}🤖 NullarAI Code Review${NC}"
+    echo "============================="
     
-    if [ -z "$remote" ] || [ -z "$branch" ]; then
-        remote="origin"
-        branch=$(git rev-parse --abbrev-ref HEAD)
+    # Prompt function
+    prompt_yes_no() {
+        local question="$1"
+        local response
+        while true; do
+            echo -n -e "${question} ${GREEN}(y/n)${NC}: "
+            read -r response
+            case "$response" in
+                [Yy]|[Yy][Ee][Ss]) return 0 ;;
+                [Nn]|[Nn][Oo]) return 1 ;;
+                *) echo -e "${RED}Please enter y or n${NC}" ;;
+            esac
+        done
+    }
+    
+    # Prompt user to run review
+    if prompt_yes_no "Do you want to run a NullarAI Code Review on this push?"; then
+        while true; do
+            echo ""
+            echo -e "${BLUE}🔍 Running NullarAI Code Review...${NC}"
+            echo ""
+            
+            node scripts/ai-code-reviewer.js "$commit_range"
+            review_exit_code=$?
+            
+            echo ""
+            
+            if prompt_yes_no "Do you want to re-run the NullarAI Code Review?"; then
+                echo ""
+                echo -e "${YELLOW}↻ Re-running review...${NC}"
+                continue
+            else
+                if [ $review_exit_code -eq 1 ]; then
+                    if prompt_yes_no "Issues were found. Do you want to push anyways?"; then
+                        echo ""
+                        echo -e "${GREEN}✅ Proceeding with push (user override)${NC}"
+                        exit 0
+                    else
+                        echo ""
+                        echo -e "${RED}❌ Push blocked due to issues found${NC}"
+                        exit 1
+                    fi
+                elif [ $review_exit_code -eq 2 ]; then
+                    if prompt_yes_no "API error occurred. Do you want to push anyways?"; then
+                        echo ""
+                        echo -e "${GREEN}✅ Proceeding with push (user override)${NC}"
+                        exit 0
+                    else
+                        echo ""
+                        echo -e "${RED}❌ Push blocked due to API error${NC}"
+                        exit 1
+                    fi
+                else
+                    echo ""
+                    echo -e "${GREEN}✅ No issues found, proceeding with push${NC}"
+                    exit 0
+                fi
+            fi
+        done
+    else
+        echo ""
+        echo -e "${GREEN}⏭️  Skipping NullarAI, proceeding with push${NC}"
+        exit 0
     fi
-    
-    commit_range="${remote}/${branch}..HEAD"
+else
+    # Non-interactive mode: auto-run review
+    echo -e "${BLUE}🤖 NullarAI Code Review (non-interactive)${NC}"
+    echo "============================================="
     
     echo ""
     echo -e "${BLUE}🔍 Running NullarAI Code Review...${NC}"
@@ -58,108 +129,4 @@ if [ ! -t 0 ]; then
         echo -e "${GREEN}✅ Review complete, proceeding with push${NC}"
         exit 0
     fi
-fi
-
-# Interactive mode - prompt user
-
-# Function to run the AI review
-run_review() {
-    local commit_range="$1"
-    node scripts/ai-code-reviewer.js "$commit_range"
-    return $?
-}
-
-# Prompt function for interactive mode
-prompt_yes_no() {
-    local question="$1"
-    local response
-    
-    while true; do
-        echo -n -e "${question} ${GREEN}(y/n)${NC}: "
-        read -r response
-        case "$response" in
-            [Yy]|[Yy][Ee][Ss])
-                return 0
-                ;;
-            [Nn]|[Nn][Oo])
-                return 1
-                ;;
-            *)
-                echo -e "${RED}Please enter y or n${NC}"
-                ;;
-        esac
-    done
-}
-
-# Main logic
-echo -e "${BLUE}🤖 NullarAI Code Review${NC}"
-echo "=================="
-
-# Prompt user to run review
-if prompt_yes_no "Do you want to run an NullarAI Code Review on this push?"; then
-    # Get remote and branch info
-    remote=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null | cut -d'/' -f1)
-    branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
-    
-    if [ -z "$remote" ] || [ -z "$branch" ]; then
-        remote="origin"
-        branch=$(git rev-parse --abbrev-ref HEAD)
-    fi
-    
-    commit_range="${remote}/${branch}..HEAD"
-    
-    # Loop for re-running review
-    while true; do
-        echo ""
-        echo -e "${BLUE}🔍 Running NullarAI Code Review...${NC}"
-        echo ""
-        
-        # Run the review
-        run_review "$commit_range"
-        review_exit_code=$?
-        
-        echo ""
-        
-        # Check if user wants to re-run
-        if prompt_yes_no "Do you want to re-run the NullarAI Code Review again to try and find some issues?"; then
-            echo ""
-            echo -e "${YELLOW}↻ Re-running review...${NC}"
-            continue
-        else
-            # User doesn't want to re-run, check if there were issues
-            if [ $review_exit_code -eq 1 ]; then
-                # Issues were found, ask if user wants to push anyway
-                if prompt_yes_no "Issues were found. Do you want to push anyways?"; then
-                    echo ""
-                    echo -e "${GREEN}✅ Proceeding with push (user override)${NC}"
-                    exit 0
-                else
-                    echo ""
-                    echo -e "${RED}❌ Push blocked due to issues found${NC}"
-                    exit 1
-                fi
-            elif [ $review_exit_code -eq 2 ]; then
-                # API error
-                echo -e "${RED}❌ API error occurred${NC}"
-                if prompt_yes_no "Do you want to push anyways despite the error?"; then
-                    echo ""
-                    echo -e "${GREEN}✅ Proceeding with push (user override)${NC}"
-                    exit 0
-                else
-                    echo ""
-                    echo -e "${RED}❌ Push blocked due to API error${NC}"
-                    exit 1
-                fi
-            else
-                # No issues found or review succeeded
-                echo ""
-                echo -e "${GREEN}✅ No issues found, proceeding with push${NC}"
-                exit 0
-            fi
-        fi
-    done
-else
-    echo ""
-    echo -e "${GREEN}⏭️  Skipping NullarAI Code Review, proceeding with push${NC}"
-    exit 0
 fi

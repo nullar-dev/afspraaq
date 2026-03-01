@@ -97,7 +97,24 @@ function Sparkline({ data, color = '#D4A853' }: { data: number[]; color?: string
 }
 
 export function Dashboard({ data = mockDashboardData }: DashboardProps) {
-  const { todayStats, sparklineData, todayBookings, recentActivity, serviceDistribution } = data;
+  const safeData = (data ?? mockDashboardData) as Partial<typeof mockDashboardData>;
+  const todayStats = {
+    ...mockDashboardData.todayStats,
+    ...(safeData.todayStats ?? {}),
+  };
+  const sparklineData = {
+    ...mockDashboardData.sparklineData,
+    ...(safeData.sparklineData ?? {}),
+  };
+  const todayBookings = Array.isArray(safeData.todayBookings)
+    ? safeData.todayBookings
+    : mockDashboardData.todayBookings;
+  const recentActivity = Array.isArray(safeData.recentActivity)
+    ? safeData.recentActivity
+    : mockDashboardData.recentActivity;
+  const serviceDistribution = Array.isArray(safeData.serviceDistribution)
+    ? safeData.serviceDistribution
+    : mockDashboardData.serviceDistribution;
 
   return (
     <div className="space-y-6 animate-fade-in">

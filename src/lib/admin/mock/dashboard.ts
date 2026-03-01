@@ -50,6 +50,16 @@ function safeDateString(date: Date): string {
   }
 }
 
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const CREATED_AT_WINDOW_MS = 7 * ONE_DAY_MS;
+
+function randomItem<T>(items: readonly T[], label: string): T {
+  if (items.length === 0) {
+    throw new Error(`Expected non-empty items for ${label}`);
+  }
+  return items[Math.floor(Math.random() * items.length)] as T;
+}
+
 // Generate 30 days of mock data
 function generateDailyStats(): DailyStats[] {
   const stats: DailyStats[] = [];
@@ -143,10 +153,10 @@ function generateTodayBookings(): Booking[] {
   const todayStr = safeDateString(new Date());
 
   for (let i = 0; i < 8; i++) {
-    const firstName = firstNames[Math.floor(Math.random() * firstNames.length)] ?? 'John';
-    const lastName = lastNames[Math.floor(Math.random() * lastNames.length)] ?? 'Smith';
-    const service = services[Math.floor(Math.random() * services.length)] ?? 'Premium';
-    const vehicle = vehicles[Math.floor(Math.random() * vehicles.length)] ?? 'Sedan';
+    const firstName = randomItem(firstNames, 'firstNames');
+    const lastName = randomItem(lastNames, 'lastNames');
+    const service = randomItem(services, 'services');
+    const vehicle = randomItem(vehicles, 'vehicles');
     const timeSlot = times[i * 2] ?? '09:00 AM';
 
     const priceMap: Record<string, number> = { Essential: 149, Premium: 299, Ultimate: 499 };
@@ -162,7 +172,7 @@ function generateTodayBookings(): Booking[] {
       time: timeSlot,
       status: i < 3 ? 'completed' : i < 5 ? 'confirmed' : 'pending',
       price: Math.floor((priceMap[service] ?? 299) * vehicleMultiplier),
-      createdAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date(Date.now() - Math.random() * CREATED_AT_WINDOW_MS).toISOString(),
     });
   }
 

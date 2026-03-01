@@ -19,4 +19,13 @@ describe('Admin Dashboard', () => {
 
     expect(screen.getByTestId('sparkline-empty')).toBeTruthy();
   });
+
+  it('renders safely when injected data object is incomplete', () => {
+    render(
+      <Dashboard data={{ todayStats: { revenue: 2500 } } as unknown as typeof mockDashboardData} />
+    );
+
+    expect(screen.getByText('Dashboard')).toBeTruthy();
+    expect(screen.getByText("Today's Revenue")).toBeTruthy();
+  });
 });

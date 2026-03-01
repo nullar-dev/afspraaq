@@ -37,8 +37,9 @@ test.describe('Staging admin access control', () => {
       await expect(page).toHaveURL(/\/booking\/vehicle$/);
 
       await page.goto('/admin');
-      await expect(page).toHaveURL(/\/admin(?:#\/profiles)?$/);
-      await expect(page.getByText(/profiles/i)).toBeVisible();
+      await expect(page).toHaveURL(/\/admin$/);
+      await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+      await expect(page.getByRole('link', { name: 'View All Bookings' })).toBeVisible();
     } finally {
       await deleteEphemeralUser(adminUser.id);
     }

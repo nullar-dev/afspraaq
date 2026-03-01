@@ -44,9 +44,14 @@ export interface ActivityItem {
 // Helper to safely get date string
 function safeDateString(date: Date): string {
   try {
-    return date.toISOString().split('T')[0] || date.toISOString();
-  } catch {
-    return new Date().toISOString().split('T')[0] || '2024-01-01';
+    const iso = date.toISOString();
+    const datePart = iso.split('T')[0];
+    return datePart || iso;
+  } catch (error) {
+    console.error('safeDateString failed:', error);
+    const fallbackIso = new Date().toISOString();
+    const fallbackDatePart = fallbackIso.split('T')[0];
+    return fallbackDatePart || fallbackIso;
   }
 }
 
@@ -170,13 +175,26 @@ function generateTodayBookings(): Booking[] {
       vehicle,
       date: todayStr,
       time: timeSlot,
-      status: i < 3 ? 'completed' : i < 5 ? 'confirmed' : 'pending',
+      status:
+        (
+          [
+            'completed',
+            'completed',
+            'confirmed',
+            'confirmed',
+            'pending',
+            'pending',
+            'pending',
+            'pending',
+          ] as const
+        )[i] ?? 'pending',
       price: Math.floor((priceMap[service] ?? 299) * vehicleMultiplier),
       createdAt: new Date(Date.now() - Math.random() * CREATED_AT_WINDOW_MS).toISOString(),
     });
   }
 
-  return bookings.sort((a, b) => times.indexOf(a.time) - times.indexOf(b.time));
+  // Bookings are generated in chronological order via `times[i * 2]`.
+  return bookings;
 }
 
 // Service distribution
@@ -337,7 +355,7 @@ export const mockDashboardData = {
 
   weekHeatmap: Array.from({ length: 7 }, (_, i) => {
     const date = new Date();
-    date.setDate(date.getDate() + i);
+    date.setDate(date.getDate() - (6 - i));
     const isWeekend = date.getDay() === 0 || date.getDay() === 6;
     return {
       day: date.toLocaleDateString('en-US', { weekday: 'short' }),

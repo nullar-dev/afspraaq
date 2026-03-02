@@ -5,11 +5,12 @@
 
 import { OpenAI } from 'openai';
 
-const MODEL = process.env.MINIMAX_MODEL || 'MiniMax-M2.5';
-const BASE_URL = process.env.MINIMAX_BASE_URL || 'https://api.minimax.io/v1';
+const MODEL = process.env.MINIMAX_MODEL?.trim() || 'MiniMax-M2.5';
+const BASE_URL = process.env.MINIMAX_BASE_URL?.trim() || 'https://api.minimax.io/v1';
 const timeoutFromEnv = parseInt(process.env.MINIMAX_TIMEOUT_MS, 10);
 const TIMEOUT_MS = Number.isFinite(timeoutFromEnv) && timeoutFromEnv > 0 ? timeoutFromEnv : null;
-const MAX_RETRIES = Math.min(Math.max(parseInt(process.env.MINIMAX_MAX_RETRIES, 10) || 2, 0), 10);
+const rawRetries = parseInt(process.env.MINIMAX_MAX_RETRIES, 10);
+const MAX_RETRIES = Number.isInteger(rawRetries) ? Math.min(Math.max(rawRetries, 0), 10) : 2;
 
 const SHARED_CONTRACT = `OUTPUT CONTRACT (STRICT):
 Return ONLY a valid JSON object that matches EXACTLY this schema:
@@ -149,21 +150,28 @@ function createClient(apiKey) {
 async function callWithRetry(client, messages, hooks = {}) {
   let lastError;
   const retries = MAX_RETRIES;
+  const requestTimeout = TIMEOUT_MS || 30000;
 
-  for (let i = 0; i <= retries; i++) {
-    hooks.onAttempt?.({ attempt: i + 1, maxAttempts: retries + 1 });
+  for (let i = 0; i < retries; i++) {
+    hooks.onAttempt?.({ attempt: i + 1, maxAttempts: retries });
     try {
       const response = await client.chat.completions.create({
         model: MODEL,
         messages,
         temperature: 0,
         max_tokens: 4000,
+        timeout: requestTimeout,
       });
       return response;
     } catch (error) {
       lastError = error;
-      if (i < retries) {
-        const delayMs = 1000 * (i + 1);
+      const status = error.status;
+      const isRetryable = status === 429 || status >= 500;
+      if (!isRetryable && i >= retries - 1) {
+        throw error;
+      }
+      if (i < retries - 1) {
+        const delayMs = 1000 * Math.pow(2, i);
         hooks.onRetry?.({ delayMs, error });
         await new Promise(r => setTimeout(r, delayMs));
       }
@@ -324,8 +332,8 @@ function parseIssuesJson(reviewText) {
     jsonStr = codeBlockMatch[1].trim();
   }
 
-  const objMatch = jsonStr.match(/\{[\s\S]*\}/);
-  const arrMatch = jsonStr.match(/\[[\s\S]*\]/);
+  const objMatch = jsonStr.match(/\{[\s\S]{0,50000}\}/);
+  const arrMatch = jsonStr.match(/\[[\s\S]{0,50000}\]/);
 
   if (objMatch) {
     jsonStr = objMatch[0];
@@ -333,31 +341,24 @@ function parseIssuesJson(reviewText) {
     jsonStr = arrMatch[0];
   }
 
-  if (!jsonStr.startsWith('{') && !jsonStr.startsWith('[')) {
+  const tryParse = () => {
+    if (!jsonStr.startsWith('{') && !jsonStr.startsWith('[')) {
+      return null;
+    }
+    return JSON.parse(jsonStr);
+  };
+
+  let parsed = tryParse();
+  if (!parsed) {
     const fallback = parseIssuesLegacy(reviewText);
-    if (fallback.valid) {
-      return fallback;
-    }
+    if (fallback.valid) return fallback;
     const rawFallback = parseIssuesRaw(reviewText);
-    if (rawFallback.valid) {
-      return rawFallback;
-    }
+    if (rawFallback.valid) return rawFallback;
     result.error = 'Response does not start with JSON object or array';
     return result;
   }
 
   try {
-    let parsed;
-    try {
-      parsed = JSON.parse(jsonStr);
-    } catch {
-      const fallback = parseIssuesLegacy(reviewText);
-      if (fallback.valid) return fallback;
-      const rawFallback = parseIssuesRaw(reviewText);
-      if (rawFallback.valid) return rawFallback;
-      throw new Error('Could not parse JSON');
-    }
-
     let issuesData =
       parsed.issues ||
       parsed.findings ||
@@ -398,33 +399,6 @@ function parseIssuesJson(reviewText) {
       };
     }
 
-    if (
-      issues.CRITICAL.length === 0 &&
-      issues.MAJOR.length === 0 &&
-      issues.MINOR.length === 0 &&
-      issues.NIT.length === 0
-    ) {
-      if (Array.isArray(issuesData)) {
-        for (const item of issuesData) {
-          const sev = (item.severity || item.type || item.level || 'MINOR').toUpperCase();
-          const desc = item.description || item.message || item.issue || JSON.stringify(item);
-          const file = item.file || item.filename || 'unknown';
-          const line = item.line || item.lineNumber || 0;
-          const formatted = line > 0 ? `${file}:${line} - ${desc}` : `${file} - ${desc}`;
-
-          if (sev.includes('CRITICAL') || sev.includes('HIGH')) {
-            issues.CRITICAL.push(formatted);
-          } else if (sev.includes('MAJOR') || sev.includes('MEDIUM')) {
-            issues.MAJOR.push(formatted);
-          } else if (sev.includes('MINOR') || sev.includes('LOW')) {
-            issues.MINOR.push(formatted);
-          } else {
-            issues.NIT.push(formatted);
-          }
-        }
-      }
-    }
-
     for (const key of Object.keys(issues)) {
       if (!Array.isArray(issues[key])) {
         issues[key] = [];
@@ -453,13 +427,9 @@ function parseIssuesJson(reviewText) {
     return result;
   } catch (e) {
     const fallback = parseIssuesLegacy(reviewText);
-    if (fallback.valid) {
-      return fallback;
-    }
+    if (fallback.valid) return fallback;
     const rawFallback = parseIssuesRaw(reviewText);
-    if (rawFallback.valid) {
-      return rawFallback;
-    }
+    if (rawFallback.valid) return rawFallback;
     result.error = `Invalid JSON: ${e.message}`;
     return result;
   }
@@ -605,9 +575,16 @@ async function runAgent(client, agentKey, context, hooks = {}) {
     onRetry: opts => hooks.onRetry?.({ ...opts, agent: config.name }),
   });
 
-  const raw = response.choices[0].message.content || '';
+  const choice = response?.choices?.[0];
+  if (!choice) {
+    throw new Error('Invalid API response: missing choices');
+  }
+  const raw = choice.message?.content || '';
 
-  if (process.env.NULLAR_AI_DEBUG !== '0') {
+  if (
+    process.env.NULLAR_AI_DEBUG === '1' ||
+    process.env.NULLAR_AI_DEBUG?.toLowerCase() === 'true'
+  ) {
     console.error(`[DEBUG][${config.name}] Raw response:`, raw.substring(0, 500));
   }
 
@@ -666,11 +643,14 @@ export async function runParallelAgents(context, apiKey, hooks = {}) {
   const agentKeys = ['security', 'logic', 'quality'];
 
   const agentPromises = agentKeys.map(agentKey =>
-    runAgent(client, agentKey, context, hooks).catch(error => ({
-      agent: AGENT_CONFIGS[agentKey].name,
-      issues: null,
-      error: String(error?.message ?? error),
-    }))
+    runAgent(client, agentKey, context, hooks).catch(error => {
+      const msg = error?.message;
+      return {
+        agent: AGENT_CONFIGS[agentKey].name,
+        issues: null,
+        error: msg && msg !== 'Error' ? msg : String(error),
+      };
+    })
   );
 
   hooks.onProgress?.('Starting 3 parallel agents...');

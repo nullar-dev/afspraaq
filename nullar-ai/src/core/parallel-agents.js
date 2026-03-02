@@ -9,7 +9,7 @@ const MODEL = process.env.MINIMAX_MODEL || 'MiniMax-M2.5';
 const BASE_URL = process.env.MINIMAX_BASE_URL || 'https://api.minimax.io/v1';
 const timeoutFromEnv = parseInt(process.env.MINIMAX_TIMEOUT_MS, 10);
 const TIMEOUT_MS = Number.isFinite(timeoutFromEnv) && timeoutFromEnv > 0 ? timeoutFromEnv : null;
-const MAX_RETRIES = parseInt(process.env.MINIMAX_MAX_RETRIES, 10) || 2;
+const MAX_RETRIES = Math.min(Math.max(parseInt(process.env.MINIMAX_MAX_RETRIES, 10) || 2, 0), 10);
 
 const SHARED_CONTRACT = `OUTPUT CONTRACT (STRICT):
 Return ONLY a valid JSON object that matches EXACTLY this schema:
@@ -302,7 +302,7 @@ function convertArrayToIssues(items) {
         issues.NIT.push(formatted);
       }
     } else if (typeof item === 'string' && (item.includes(':') || item.includes(' - '))) {
-      issues.MINOR.push(item);
+      issues.NIT.push(item);
     }
   }
 

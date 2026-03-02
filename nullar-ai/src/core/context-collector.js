@@ -172,7 +172,7 @@ function buildExpandedContext(diff, maxContextChars = MAX_CONTEXT_CHARS) {
   let context = `## DIFF (Original)\n${diff}\n\n`;
 
   if (symbols.functions.length === 0 && symbols.classes.length === 0) {
-    return { context, symbols, changedFiles };
+    return { context, symbols, changedFiles, usages: {} };
   }
 
   const usages = findUsages(symbols);

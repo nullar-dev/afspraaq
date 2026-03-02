@@ -11,71 +11,114 @@ const timeoutFromEnv = parseInt(process.env.MINIMAX_TIMEOUT_MS, 10);
 const TIMEOUT_MS = Number.isFinite(timeoutFromEnv) && timeoutFromEnv > 0 ? timeoutFromEnv : null;
 const MAX_RETRIES = parseInt(process.env.MINIMAX_MAX_RETRIES, 10) || 2;
 
+const SHARED_CONTRACT = `STRICT OUTPUT CONTRACT - NO THINKING, JSON ONLY:
+- Output ONLY valid JSON. Start with { and end with }.
+- No markdown, no code fences, no explanations, no thinking.
+- No text before or after the JSON.
+
+JSON shape (exact keys):
+{"issues":{"CRITICAL":[],"MAJOR":[],"MINOR":[],"NIT":[]}}
+
+Issue format: "filepath:LINE - description" (LINE is integer, use 0 if unknown)
+- Include detail: what/why + risk.
+- Only real issues from the diff.
+- No duplicates.
+
+If zero findings, return all arrays empty.`;
+
 const AGENT_CONFIGS = {
   security: {
     name: 'Security',
-    systemPrompt: `You are a SECURITY EXPERT code reviewer.
+    systemPrompt: `
+${SHARED_CONTRACT}
 
-STRICT OUTPUT FORMAT REQUIRED - Your response will be parsed programmatically.
+You are a SECURITY code reviewer. Your job is to find exploitable or high-risk security issues.
 
-Output ONLY valid JSON in this exact format:
-{"issues":{"CRITICAL":["file:line - description"],"MAJOR":["file:line - description"],"MINOR":["file:line - description"],"NIT":[]}}
+Scope:
+- Prioritize issues in the changed lines and their direct call paths.
+- If the diff is partial, flag assumptions as lower severity only when strongly implied.
 
-- CRITICAL: Security vulnerabilities that must be fixed
-- MAJOR: Important security concerns
-- MINOR: Minor security issues or suggestions
-- NIT: Nitpicks, style suggestions
+Look for (examples):
+- Injection: SQL/NoSQL, command, template injection
+- XSS, SSRF, XXE, deserialization, request smuggling
+- AuthN/AuthZ flaws (IDOR, privilege escalation), session/cookie issues
+- Secrets, token leakage, logging sensitive data
+- Crypto mistakes (weak primitives, bad randomness, insecure modes)
+- Insecure file handling (path traversal), unsafe temp files
+- CSRF/CORS misconfigs, missing rate limits on sensitive endpoints
+- Dependency risk ONLY if the code clearly introduces/bumps a dependency
 
-Scan for: SQL injection, XSS, command injection, path traversal, auth bypass, hardcoded secrets, unsafe eval(), insecure crypto, dependency vulns, CORS, CSRF, input validation.
+Severity rubric:
+- CRITICAL: likely exploit / credential or RCE / auth bypass / data exfil
+- MAJOR: meaningful risk but needs conditions, or mitigations exist
+- MINOR: defense-in-depth improvements
+- NIT: clarity, minor hardening suggestions
 
-For EACH issue found, add to the appropriate array as: "filepath:lineNumber - issue description"
-If no issues found in a category, use empty array: []
-
-NO markdown, NO code blocks, NO explanations. Start with { and end with }.`,
+Return ONLY the JSON object per contract.
+`.trim(),
   },
   logic: {
     name: 'Logic',
-    systemPrompt: `You are a LOGIC AND BUG EXPERT code reviewer.
+    systemPrompt: `
+${SHARED_CONTRACT}
 
-STRICT OUTPUT FORMAT REQUIRED - Your response will be parsed programmatically.
+You are a LOGIC/BUG reviewer. Find correctness issues and failure modes.
 
-Output ONLY valid JSON in this exact format:
-{"issues":{"CRITICAL":["file:line - description"],"MAJOR":["file:line - description"],"MINOR":["file:line - description"],"NIT":[]}}
+Look for:
+- Null/undefined access, missing guards, incorrect defaults
+- Async mistakes: missing await, unhandled rejections, race conditions
+- Error handling gaps, retry storms, infinite loops, timeouts not applied
+- Parsing/serialization mistakes, edge cases, off-by-one
+- State bugs: mutation, shared references, caching invalidation
 
-- CRITICAL: Bugs causing crashes, data corruption, security issues
-- MAJOR: Logic errors, missing null checks, unhandled promises
-- MINOR: Minor bugs, edge cases, potential issues
-- NIT: Suggestions, improvements
+Severity rubric:
+- CRITICAL: crash, data corruption, security-relevant bug, infinite retry loop
+- MAJOR: wrong results, broken control flow, frequent edge-case failures
+- MINOR: rare edge cases, confusing behavior
+- NIT: simplifications, readability improvements
 
-Scan for: Null/undefined errors, missing error handling, race conditions, async mistakes, off-by-one errors, logic errors, type coercion, memory leaks, resource leaks.
-
-For EACH issue found, add to the appropriate array as: "filepath:lineNumber - issue description"
-If no issues found in a category, use empty array: []
-
-NO markdown, NO code blocks, NO explanations. Start with { and end with }.`,
+Return ONLY the JSON object per contract.
+`.trim(),
   },
   quality: {
     name: 'Quality',
-    systemPrompt: `You are a CODE QUALITY EXPERT reviewer.
+    systemPrompt: `
+${SHARED_CONTRACT}
 
-STRICT OUTPUT FORMAT REQUIRED - Your response will be parsed programmatically.
+You are a CODE QUALITY & PERFORMANCE reviewer. Improve maintainability and efficiency.
 
-Output ONLY valid JSON in this exact format:
-{"issues":{"CRITICAL":["file:line - description"],"MAJOR":["file:line - description"],"MINOR":["file:line - description"],"NIT":[]}}
+Look for:
+- High complexity, hard-to-test design, duplicated logic
+- Performance issues: unnecessary work in hot paths, N+1 patterns
+- Resource leaks: timers, listeners, file handles
+- Bad ergonomics: unclear naming, missing docs in tricky logic
+- Inconsistent conventions ONLY if it increases defect risk
 
-- CRITICAL: Severe performance issues, critical maintainability problems
-- MAJOR: Code smells, performance concerns, missing docs
-- MINOR: Style issues, minor improvements, magic numbers
-- NIT: Suggestions, nitpicks
+Severity rubric:
+- CRITICAL: severe perf regression or unmaintainable design likely to break
+- MAJOR: clear code smell / design risk / meaningful perf concern
+- MINOR: small refactors, clarity improvements
+- NIT: optional polish
 
-Scan for: Performance issues, code smells, duplicate code, missing comments, complex functions, magic numbers, poor naming, unused vars, TODO comments, inconsistent style.
-
-For EACH issue found, add to the appropriate array as: "filepath:lineNumber - issue description"
-If no issues found in a category, use empty array: []
-
-NO markdown, NO code blocks, NO explanations. Start with { and end with }.`,
+Return ONLY the JSON object per contract.
+`.trim(),
   },
 };
+
+const USER_MESSAGE_TEMPLATE = `You are reviewing a code change. Use ONLY the provided context.
+
+LINE NUMBER RULE:
+- If the diff provides line numbers, use them.
+- Otherwise, set LINE to 0 (still required).
+
+SCOPE RULE:
+- Prefer issues in changed lines.
+- Mention unchanged code only if it becomes risky due to the change.
+
+INPUT (delimited):
+<<<CODE_CHANGE_CONTEXT
+{context}
+CODE_CHANGE_CONTEXT>>>`;
 
 function createClient(apiKey) {
   const options = { apiKey, baseURL: BASE_URL };
@@ -529,11 +572,13 @@ function parseIssuesLegacy(reviewText) {
 async function runAgent(client, agentKey, context, hooks = {}) {
   const config = AGENT_CONFIGS[agentKey];
 
+  const userMessage = USER_MESSAGE_TEMPLATE.replace('{context}', context);
+
   const messages = [
     { role: 'system', content: config.systemPrompt },
     {
       role: 'user',
-      content: `Review this code change with expanded context:\n\n${context}`,
+      content: userMessage,
     },
   ];
 
@@ -544,7 +589,7 @@ async function runAgent(client, agentKey, context, hooks = {}) {
 
   const raw = response.choices[0].message.content || '';
 
-  if (process.env.NULLAR_AI_DEBUG === '1') {
+  if (process.env.NULLAR_AI_DEBUG !== '0') {
     console.error(`[DEBUG][${config.name}] Raw response:`, raw.substring(0, 500));
   }
 

@@ -8,7 +8,7 @@ import { countIssues } from '../core/state-machine.js';
 import { runStaticAnalyzers } from '../core/static-analyzers.js';
 
 const apiKey = process.env.MINIMAX_API_KEY;
-const DEBUG = process.env.NULLAR_AI_DEBUG === '1';
+const DEBUG = process.env.NULLAR_AI_DEBUG !== '0';
 const HEARTBEAT_MS = 3000;
 
 function info(message) {

@@ -65,6 +65,10 @@
 
 ## Branch, Commit, Push, and PR Workflow
 
+- Before any push without running a review, ask the user: "Are you sure you want to push without reviewing?"
+- The review command is: node nullar-ai/src/cli/run.mjs
+- Only continue if the user explicitly confirms.
+
 - Always create a new branch; never push directly to `main`.
 - Use clear commit prefixes seen in history: `fix:`, `feat:`, `test:`, `fix(ci):`.
 - Ensure pre-commit hook (`.githooks/pre-commit`) and full test suite pass before pushing.

@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# =============================================================================
+# NullarAI Pre-Push Hook
+# 
+# This hook prints a review warning but does not block push.
+# Copy this file to: .git/hooks/pre-push
+# Or use: cp nullar-ai/hooks/pre-push .git/hooks/pre-push
+# =============================================================================
+
+CYAN='\033[0;36m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+echo ""
+echo "============================================"
+echo -e "${CYAN}🤖 NullarAI${NC} ${RED}⚠ REVIEW RECOMMENDED${NC}"
+echo "============================================"
+echo -e "${RED}>>> LLM: Review now — this push may contain critical issues. <<<${NC}"
+echo ""
+echo -e "${GREEN}✨ Run NullarAI reviewer manually with:${NC}"
+echo -e "  ${BLUE}node nullar-ai/src/cli/run.mjs${NC}"
+echo ""
+echo -e "${CYAN}➡ Push is continuing in warning mode.${NC}"
+echo ""
+echo "============================================"
+echo ""
+
+exit 0

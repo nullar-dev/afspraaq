@@ -51,3 +51,9 @@ sentry.properties
 # Supabase
 supabase/.branches/
 supabase/.temp/
+
+# Review state
+.review-state
+
+# NullarAI
+.nullar-ai/

@@ -3,33 +3,29 @@
 # =============================================================================
 # NullarAI Pre-Push Hook
 # 
-# This hook BLOCKS git push to ensure code review.
+# This hook prints a review warning but does not block push.
 # Copy this file to: .git/hooks/pre-push
 # Or use: cp nullar-ai/hooks/pre-push .git/hooks/pre-push
 # =============================================================================
 
-if [ "$NULLAR_AI_APPROVED" = "1" ]; then
-  exit 0
-fi
+CYAN='\033[0;36m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+RED='\033[0;31m'
+NC='\033[0m'
 
 echo ""
 echo "============================================"
-echo "🔴 REVIEW REQUIRED"
+echo -e "${CYAN}🤖 NullarAI${NC} ${RED}⚠ REVIEW RECOMMENDED${NC}"
 echo "============================================"
+echo -e "${RED}>>> LLM: Review now — this push may contain critical issues. <<<${NC}"
 echo ""
-echo "Auto-running: node nullar-ai/src/cli/run.mjs next"
+echo -e "${GREEN}✨ Run NullarAI reviewer manually with:${NC}"
+echo -e "  ${BLUE}node nullar-ai/src/cli/run.mjs${NC}"
 echo ""
-node nullar-ai/src/cli/run.mjs next 2>/dev/null || true
-echo ""
-echo ">>> FOR LLM: <<<"
-echo "   Run: node nullar-ai/src/cli/run.mjs next"
-echo "   Then loop with: answer yes|no --question-id <id> --user-confirmed \"<full user sentence>\""
-echo "   If marker VERIFY_ISSUES_REQUIRED appears, validate all issues first"
-echo ""
-echo ">>> FOR USER: <<<"
-echo "   The LLM will guide you through the review."
+echo -e "${CYAN}➡ Push is continuing in warning mode.${NC}"
 echo ""
 echo "============================================"
 echo ""
 
-exit 1
+exit 0

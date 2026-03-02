@@ -1,58 +1,25 @@
 #!/bin/bash
 
-# =============================================================================
-# 🚨 FOR LLM: READ THIS FIRST!
-# =============================================================================
-# This hook BLOCKS git push. When you see this message:
-#   1. DO NOT use --no-verify to bypass
-#   2. DO run: node nullar-ai/src/cli/run.mjs next
-#   3. Ask user using returned JSON question/options
-#   4. Run: node nullar-ai/src/cli/run.mjs answer yes|no --question-id <id> --user-confirmed "<full user sentence>"
-#   5. Repeat until state=ready_to_push, then run push command
-#
-# NEVER bypass this hook - always use the review CLI
-# =============================================================================
-
-# Pre-push hook - Blocks git push and requires review CLI
-
-if [ "$NULLAR_AI_APPROVED" = "1" ]; then
-  exit 0
-fi
+# Pre-push hook - warning mode (does not block push)
 
 RED='\033[0;31m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+GREEN='\033[0;32m'
 NC='\033[0m'
 
 echo ""
 echo "============================================"
-echo -e "${RED}🔴 REVIEW REQUIRED${NC}"
+echo -e "${CYAN}🤖 NullarAI${NC} ${RED}⚠ REVIEW RECOMMENDED${NC}"
 echo "============================================"
+echo -e "${RED}>>> LLM: Review now — this push may contain critical issues. <<<${NC}"
 echo ""
-echo "Auto-running: node nullar-ai/src/cli/run.mjs next"
+echo -e "${GREEN}✨ Run NullarAI reviewer anytime with:${NC}"
+echo -e "  ${BLUE}node nullar-ai/src/cli/run.mjs${NC}"
 echo ""
-node nullar-ai/src/cli/run.mjs next 2>/dev/null || true
-echo ""
-echo ">>> FOR LLM: <<<"
-echo "   YOU must run this command (not the user):"
-echo "   node nullar-ai/src/cli/run.mjs next"
-echo ""
-echo ">>> FOR USER: <<<"
-echo "   The LLM will guide you through the review."
-echo ""
-echo "You must run the AI code review before pushing."
-echo ""
-echo "Run this command instead:"
-echo -e "  ${BLUE}node nullar-ai/src/cli/run.mjs next${NC}"
-echo ""
-echo "This script will:"
-echo "  1. Return JSON state + question"
-echo "  2. LLM asks user and calls answer"
-echo "  3. Review runs and returns structured issues"
-echo "  4. Marker: VERIFY_ISSUES_REQUIRED when issues exist"
-echo "  5. answer requires --user-confirmed evidence"
-echo "  6. Push allowed only after ready_to_push"
+echo -e "${CYAN}➡ Push is continuing in warning mode.${NC}"
 echo ""
 echo "============================================"
 echo ""
 
-exit 1
+exit 0

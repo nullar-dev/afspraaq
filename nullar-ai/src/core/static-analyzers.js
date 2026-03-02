@@ -8,6 +8,10 @@ import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
 
+const LINTER_TIMEOUT_MS = 30000;
+const LINTER_MAX_BUFFER = 10 * 1024 * 1024;
+const MAX_LINTER_ISSUES = 20;
+
 const TOOL_CONFIGS = [
   {
     name: 'ESLint',
@@ -40,8 +44,8 @@ async function runTool(tool, files) {
 
   try {
     const { stdout, stderr } = await execFileAsync(tool.cmd, args, {
-      timeout: 30000,
-      maxBuffer: 10 * 1024 * 1024,
+      timeout: LINTER_TIMEOUT_MS,
+      maxBuffer: LINTER_MAX_BUFFER,
     });
 
     const output = stdout + stderr;
@@ -81,7 +85,7 @@ async function runTool(tool, files) {
       }
     }
 
-    return issues.slice(0, 20);
+    return issues.slice(0, MAX_LINTER_ISSUES);
   } catch (error) {
     if (error.code === 'ENOENT') {
       return [];
@@ -101,7 +105,7 @@ async function runTool(tool, files) {
           });
         }
       }
-      return issues.slice(0, 20);
+      return issues.slice(0, MAX_LINTER_ISSUES);
     }
     return [];
   }

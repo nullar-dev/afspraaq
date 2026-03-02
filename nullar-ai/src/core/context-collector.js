@@ -8,6 +8,10 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 const CONTEXT_LINES = 12;
+const USAGE_CONTEXT_LINES = 8;
+const MAX_CONTEXT_CHARS = parseInt(process.env.NULLAR_MAX_CONTEXT_CHARS, 10) || 150000;
+const MAX_USAGES = 50;
+const MAX_BUFFER = 50 * 1024 * 1024;
 
 function execGitGrep(pattern, options = {}) {
   try {
@@ -19,7 +23,7 @@ function execGitGrep(pattern, options = {}) {
     }
     return execFileSync('git', args, {
       encoding: 'utf-8',
-      maxBuffer: 50 * 1024 * 1024,
+      maxBuffer: MAX_BUFFER,
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: options.cwd || process.cwd(),
     });
@@ -37,8 +41,8 @@ function extractSymbolsFromDiff(diff) {
   };
 
   const functionPattern =
-    /^[+-]\s*(?:async\s+)?(?:function\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\(|(\w+)\s*\([^)]*\)\s*\{)/gm;
-  const classPattern = /^[+-]\s*class\s+(\w+)/g;
+    /^[+-]\s*(?:async\s+)?(?:function\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?(?:\(|=>)|(\w+)\s*\([^)]*\)\s*(?:\{|=>))/gm;
+  const classPattern = /^[+-]\s*class\s+(\w+)(?:\s+extends\s+\w+)?\s*\{/g;
   const importPattern = /^[+-]\s*import\s+(?:{[^}]+}|[\w]+)\s+from\s+['"]([^'"]+)['"]/g;
   const exportPattern = /^[+-]\s*export\s+(?:default\s+)?(?:function|const|let|var|class)\s+(\w+)/g;
 
@@ -161,7 +165,7 @@ function findUsages(symbols) {
   return usages;
 }
 
-function buildExpandedContext(diff, maxContextChars = 150000) {
+function buildExpandedContext(diff, maxContextChars = MAX_CONTEXT_CHARS) {
   const symbols = extractSymbolsFromDiff(diff);
   const changedFiles = getChangedFiles(diff);
 
@@ -183,9 +187,9 @@ function buildExpandedContext(diff, maxContextChars = 150000) {
 
     for (const [file, lines] of Object.entries(files)) {
       if (contextChars > maxContextChars) break;
-      if (usageCount > 50) break;
+      if (usageCount > MAX_USAGES) break;
 
-      const fileContext = getFileContext(file, lines, 8);
+      const fileContext = getFileContext(file, lines, USAGE_CONTEXT_LINES);
       if (fileContext) {
         const addedContent = `### ${symbol} used in ${file}\n\`\`\`\n${fileContext}\n\`\`\`\n\n`;
         context += addedContent;

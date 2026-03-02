@@ -134,7 +134,7 @@ function cleanNestedJsonIssues(issues) {
             for (const [nKey, nItems] of Object.entries(nested.issues)) {
               if (Array.isArray(nItems)) {
                 for (const nItem of nItems) {
-                  if (typeof nItem === 'string' && nItem.includes(':')) {
+                  if (typeof nItem === 'string' && (nItem.includes(':') || nItem.includes(' - '))) {
                     cleaned[nKey]?.push(nItem);
                   }
                 }
@@ -201,7 +201,7 @@ function convertNonStandardFormat(issues) {
           } catch {
             converted[key].push(item);
           }
-        } else if (item.includes(':')) {
+        } else if (item.includes(':') || item.includes(' - ')) {
           converted[key].push(item);
         }
       }
@@ -240,7 +240,7 @@ function convertArrayToIssues(items) {
       } else {
         issues.NIT.push(formatted);
       }
-    } else if (typeof item === 'string' && item.includes(':')) {
+    } else if (typeof item === 'string' && (item.includes(':') || item.includes(' - '))) {
       issues.MINOR.push(item);
     }
   }
@@ -368,7 +368,10 @@ function parseIssuesJson(reviewText) {
       if (!Array.isArray(issues[key])) {
         issues[key] = [];
       } else {
-        issues[key] = issues[key].filter(item => typeof item === 'string' && item.includes(':'));
+        issues[key] = issues[key].filter(item => {
+          if (typeof item !== 'string') return false;
+          return item.includes(':') || item.includes(' - ');
+        });
       }
     }
 

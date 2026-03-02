@@ -1,136 +1,166 @@
-# NullarAI - Plug-and-Play AI Code Reviewer
+# NullarAI - LLM-First Push Review Gate
 
-AI-powered code review using MiniMax M2.5. Drag-and-drop into any repo.
+NullarAI is a strict, JSON-only review workflow for autonomous coding agents.
+
+It is designed for this flow:
+
+1. User says "commit and push"
+2. `git push` is blocked by pre-push hook
+3. LLM runs NullarAI loop (`next` -> `answer` -> `push`)
+4. User decisions are captured explicitly
+5. Push is allowed only after a valid terminal state
 
 ## Quick Setup
 
 ```bash
-# 1. Copy nullar-ai folder to your repo
+# 1) Copy the tool
 cp -r nullar-ai /path/to/your-repo/
 
-# 2. Set API key
+# 2) API key
 export MINIMAX_API_KEY="your-minimax-api-key"
 
-# 3. Install dependencies
+# 3) Install dependencies
 cd nullar-ai && npm install
 
-# 4. Set up pre-push hook
+# 4) Install hook
 cp nullar-ai/hooks/pre-push .git/hooks/pre-push
 chmod +x .git/hooks/pre-push
 
-# 5. Test
-node nullar-ai/src/cli/run.mjs
+# 5) Smoke test
+node nullar-ai/src/cli/run.mjs next
 ```
 
-## Usage
+## Core Commands
 
-### For Users
+| Command                                              | Purpose                                 |
+| ---------------------------------------------------- | --------------------------------------- |
+| `node nullar-ai/src/cli/run.mjs next`                | Get current state + next question       |
+| `node nullar-ai/src/cli/run.mjs answer --choice yes` | Answer current question                 |
+| `node nullar-ai/src/cli/run.mjs answer --choice no`  | Answer current question                 |
+| `node nullar-ai/src/cli/run.mjs push`                | Push only when state is `ready_to_push` |
+| `node nullar-ai/src/cli/run.mjs status`              | Show structured session snapshot        |
+| `node nullar-ai/src/cli/run.mjs reset`               | Clear session                           |
 
-```bash
-git push  # Blocked - LLM will guide you
+Notes:
+
+- No force-push command exists in normal flow.
+- Output is always structured JSON.
+- Unknown/out-of-order actions return structured errors.
+
+## LLM Loop (Recommended)
+
+The LLM should never improvise commands. It should follow this loop:
+
+1. Run `next`
+2. Read JSON fields: `question`, `options`, `allowedCommands`, `state`
+3. Ask user exactly the returned question/options
+4. Run `answer --choice yes|no`
+5. Repeat until `state` is `ready_to_push` or `blocked`
+6. If `ready_to_push`, run `push`
+
+## JSON Contract
+
+Every response includes:
+
+- `ok`: boolean
+- `action`: command handled (`next`, `answer`, `push`, `status`, `reset`)
+
+Common workflow fields:
+
+- `state`: current finite state
+- `question`: exact prompt for user
+- `options`: valid user options (`yes`, `no`)
+- `allowedCommands`: commands currently valid for LLM
+- `sessionId`: current session id (when available)
+
+Issue-validation fields (when issues exist):
+
+- `markers`: includes `VERIFY_ISSUES_REQUIRED`
+- `verificationRequired.marker`: `>>> VERIFY_ISSUES_REQUIRED <<<`
+- `verificationRequired.instruction`: strict validation directive for the LLM
+- `verificationRequired.requiredChecklist`: required validation steps
+
+On failure:
+
+- `ok: false`
+- `code`: machine-readable error code
+- `message`: human-readable reason
+
+Example `next`:
+
+```json
+{
+  "ok": true,
+  "action": "next",
+  "sessionId": "session_...",
+  "state": "awaiting_run_decision",
+  "question": "Run AI code review before push?",
+  "options": ["yes", "no"],
+  "allowedCommands": ["answer"]
+}
 ```
 
-### For LLMs (including opencode)
+Example invalid push:
 
-When user asks to push:
+```json
+{
+  "ok": false,
+  "code": "NOT_READY_TO_PUSH",
+  "message": "Session is not ready to push.",
+  "state": "awaiting_push_anyway_decision",
+  "allowedCommands": ["next", "answer"]
+}
+```
 
-1. Run: `node nullar-ai/src/cli/run.mjs`
-2. Script shows `>>> ASK_USER_RUN_REVIEW <<<`
-3. Use **question tool** to ask user:
-   - Question: "Do you want to run an AI Code Review before pushing?"
-   - Options: "Yes" / "No"
-4. After user answers, run appropriate command:
-   - User said **No**: `node nullar-ai/src/cli/run.mjs push`
-   - User said **Yes**: `node nullar-ai/src/cli/run.mjs run`
-5. Review runs, shows issues
-6. Use **question tool** to ask:
-   - "Re-run review?" (if issues found)
-   - "Push anyways?" (if issues > 0)
-7. After final answer:
-   - Push: `node nullar-ai/src/cli/run.mjs push`
-   - Block: `node nullar-ai/src/cli/run.mjs block`
+Example issue-validation marker payload:
 
-## Commands
+```json
+{
+  "ok": true,
+  "state": "awaiting_push_anyway_decision",
+  "markers": ["VERIFY_ISSUES_REQUIRED"],
+  "verificationRequired": {
+    "marker": ">>> VERIFY_ISSUES_REQUIRED <<<",
+    "instruction": "Before deciding, verify every issue against current code. Classify each as real, stale, or unclear with file-line evidence. Summarize only real issues."
+  }
+}
+```
 
-| Command                                | Description                    |
-| -------------------------------------- | ------------------------------ |
-| `node nullar-ai/src/cli/run.mjs`       | Start - shows initial question |
-| `node nullar-ai/src/cli/run.mjs run`   | Run the review                 |
-| `node nullar-ai/src/cli/run.mjs push`  | Force push                     |
-| `node nullar-ai/src/cli/run.mjs block` | Block push (exit 1)            |
+## State Model
+
+- `awaiting_run_decision`
+- `running_review`
+- `awaiting_push_decision`
+- `awaiting_push_anyway_decision`
+- `ready_to_push`
+- `blocked`
+- `failed`
+
+## What Gets Reviewed
+
+Primary target: commits that are about to be pushed.
+
+- If upstream exists: diff is `upstream...HEAD`
+- If no upstream: fallback to last commit diff
+
+This matches pre-push protection intent (review what is leaving your machine).
 
 ## Environment Variables
 
-| Variable          | Required | Description                            |
-| ----------------- | -------- | -------------------------------------- |
-| `MINIMAX_API_KEY` | Yes      | Get from https://platform.minimaxi.com |
+| Variable                | Required          | Description                                           |
+| ----------------------- | ----------------- | ----------------------------------------------------- |
+| `MINIMAX_API_KEY`       | Yes (unless mock) | MiniMax API key                                       |
+| `MINIMAX_BASE_URL`      | No                | Custom endpoint (default `https://api.minimax.io/v1`) |
+| `MINIMAX_MODEL`         | No                | Model override                                        |
+| `MINIMAX_TIMEOUT_MS`    | No                | API timeout (default `30000`)                         |
+| `MINIMAX_MAX_RETRIES`   | No                | Retry count (default `2`)                             |
+| `MINIMAX_MAX_DIFF_SIZE` | No                | Max diff chars sent to model (default `60000`)        |
+| `MOCK_MODE`             | No                | Set `true` for local testing without API              |
 
-## Flow
+## Important Hook Behavior
 
-```
-git push
-    │
-    ▼
-Ask: "Run AI Code Review? y/n"
-    │
-    ├── n ──▶ force push
-    │
-    └── y ──▶ Get diff of commits
-                │
-                ▼
-            Call MiniMax API
-                │
-                ▼
-            Display issues
-            🔴 CRITICAL (X)
-            🟠 MAJOR (X)
-            🟡 MINOR (X)
-            🔵 NIT (X)
-                │
-                ▼
-            Ask: "Re-run review? y/n"
-                │
-                ├── y ──▶ Loop back to "Call MiniMax API"
-                │
-                └── n ──▶
-                            │
-                            ├── Issues > 0: Ask "Push anyways? y/n"
-                            │       │
-                            │       ├── n ──▶ block (exit 1)
-                            │       │
-                            │       └── y ──▶ force push
-                            │
-                            └── Issues = 0: force push
-```
+The pre-push hook blocks direct pushes.
 
-## Reuse in Other Projects
+When NullarAI reaches a valid approved state and runs `push`, it sets an internal env var (`NULLAR_AI_APPROVED=1`) for that command so hook check passes only for that approved attempt.
 
-Simply copy the `nullar-ai/` folder to any repo:
-
-```bash
-cp -r /path/to/afspraaq/nullar-ai /path/to/other-repo/
-cd /path/to/other-repo
-export MINIMAX_API_KEY="your-key"
-cp nullar-ai/hooks/pre-push .git/hooks/pre-push
-```
-
-## Files
-
-```
-nullar-ai/
-├── package.json
-├── README.md
-├── hooks/
-│   └── pre-push
-└── src/
-    ├── core/
-    │   ├── state-machine.ts   # State transitions
-    │   ├── minimax-client.ts  # MiniMax API
-    │   ├── diff.ts            # Git diff collector
-    │   ├── format.ts           # Output formatter
-    │   └── index.ts
-    ├── storage/
-    │   └── file-store.ts       # Session state
-    └── cli/
-        └── run.mjs            # Main CLI
-```
+This keeps normal `git push` blocked while allowing the reviewed flow to complete.

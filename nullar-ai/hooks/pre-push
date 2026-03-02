@@ -8,13 +8,19 @@
 # Or use: cp nullar-ai/hooks/pre-push .git/hooks/pre-push
 # =============================================================================
 
+if [ "$NULLAR_AI_APPROVED" = "1" ]; then
+  exit 0
+fi
+
 echo ""
 echo "============================================"
 echo "🔴 REVIEW REQUIRED"
 echo "============================================"
 echo ""
 echo ">>> FOR LLM: <<<"
-echo "   Run: node nullar-ai/src/cli/run.mjs"
+echo "   Run: node nullar-ai/src/cli/run.mjs next"
+echo "   Then loop with: answer --choice yes|no"
+echo "   If marker VERIFY_ISSUES_REQUIRED appears, validate all issues first"
 echo ""
 echo ">>> FOR USER: <<<"
 echo "   The LLM will guide you through the review."

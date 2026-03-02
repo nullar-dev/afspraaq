@@ -4,35 +4,21 @@
 # 🚨 FOR LLM: READ THIS FIRST!
 # =============================================================================
 # This hook BLOCKS git push. When you see this message:
-#   1. DO NOT use CI=true, SKIP_REVIEW=1, or --no-verify
-#   2. DO run: ./scripts/review-and-push.sh
-#   3. The script will show markers - use question tool to ask user
-#   4. After user answers - re-run the script
+#   1. DO NOT use --no-verify to bypass
+#   2. DO run: node nullar-ai/src/cli/run.mjs next
+#   3. Ask user using returned JSON question/options
+#   4. Run: node nullar-ai/src/cli/run.mjs answer --choice yes|no
+#   5. Repeat until state=ready_to_push, then run push command
 #
-# NEVER bypass this hook - always use the review script
+# NEVER bypass this hook - always use the review CLI
 # =============================================================================
 
-# Pre-push hook - Blocks git push and requires review script
-#
-# =============================================================================
-# ⚠️ FOR HUMANS ONLY - LLMs MUST NOT USE THIS BYPASS
-# =============================================================================
-# This bypass is for RARE emergency cases when:
-#   - The review script is broken
-#   - You need to push a critical fix urgently
-#   - The AI API is down
-#
-# LLMs: DO NOT USE THESE BYPASSES. Always run ./scripts/review-and-push.sh
-#       and ask the user the questions.
-# =============================================================================
+# Pre-push hook - Blocks git push and requires review CLI
 
-# Check for CI/automation bypass (HUMANS ONLY - NOT FOR LLMs)
-if [ "$CI" = "true" ] || [ "$CI" = "1" ] || [ "$SKIP_REVIEW" = "1" ]; then
-    # ⚠️ Only for human emergency use
-    exit 0
+if [ "$NULLAR_AI_APPROVED" = "1" ]; then
+  exit 0
 fi
 
-# Colors
 RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m'
@@ -44,7 +30,7 @@ echo "============================================"
 echo ""
 echo ">>> FOR LLM: <<<"
 echo "   YOU must run this command (not the user):"
-echo "   ./scripts/review-and-push.sh"
+echo "   node nullar-ai/src/cli/run.mjs next"
 echo ""
 echo ">>> FOR USER: <<<"
 echo "   The LLM will guide you through the review."
@@ -52,13 +38,14 @@ echo ""
 echo "You must run the AI code review before pushing."
 echo ""
 echo "Run this command instead:"
-echo -e "  ${BLUE}./scripts/review-and-push.sh${NC}"
+echo -e "  ${BLUE}node nullar-ai/src/cli/run.mjs next${NC}"
 echo ""
 echo "This script will:"
-echo "  1. Ask: Run AI Code Review? (y/n)"
-echo "  2. Run MiniMax AI review"
-echo "  3. Ask: Re-run review? (y/n)"
-echo "  4. Ask: Push anyways? (y/n)"
+echo "  1. Return JSON state + question"
+echo "  2. LLM asks user and calls answer"
+echo "  3. Review runs and returns structured issues"
+echo "  4. Marker: VERIFY_ISSUES_REQUIRED when issues exist"
+echo "  5. Push allowed only after ready_to_push"
 echo ""
 echo "============================================"
 echo ""

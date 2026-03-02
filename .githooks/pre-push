@@ -7,7 +7,7 @@
 #   1. DO NOT use --no-verify to bypass
 #   2. DO run: node nullar-ai/src/cli/run.mjs next
 #   3. Ask user using returned JSON question/options
-#   4. Run: node nullar-ai/src/cli/run.mjs answer --choice yes|no
+#   4. Run: node nullar-ai/src/cli/run.mjs answer yes|no --user-confirmed "<user said ...>"
 #   5. Repeat until state=ready_to_push, then run push command
 #
 # NEVER bypass this hook - always use the review CLI
@@ -45,7 +45,8 @@ echo "  1. Return JSON state + question"
 echo "  2. LLM asks user and calls answer"
 echo "  3. Review runs and returns structured issues"
 echo "  4. Marker: VERIFY_ISSUES_REQUIRED when issues exist"
-echo "  5. Push allowed only after ready_to_push"
+echo "  5. answer requires --user-confirmed evidence"
+echo "  6. Push allowed only after ready_to_push"
 echo ""
 echo "============================================"
 echo ""

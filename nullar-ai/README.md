@@ -32,20 +32,21 @@ node nullar-ai/src/cli/run.mjs next
 
 ## Core Commands
 
-| Command                                              | Purpose                                 |
-| ---------------------------------------------------- | --------------------------------------- |
-| `node nullar-ai/src/cli/run.mjs next`                | Get current state + next question       |
-| `node nullar-ai/src/cli/run.mjs answer --choice yes` | Answer current question                 |
-| `node nullar-ai/src/cli/run.mjs answer --choice no`  | Answer current question                 |
-| `node nullar-ai/src/cli/run.mjs push`                | Push only when state is `ready_to_push` |
-| `node nullar-ai/src/cli/run.mjs status`              | Show structured session snapshot        |
-| `node nullar-ai/src/cli/run.mjs reset`               | Clear session                           |
+| Command                                                                     | Purpose                                    |
+| --------------------------------------------------------------------------- | ------------------------------------------ |
+| `node nullar-ai/src/cli/run.mjs next`                                       | Get current state + next question          |
+| `node nullar-ai/src/cli/run.mjs answer --choice yes --user-confirmed "..."` | Answer current question with user evidence |
+| `node nullar-ai/src/cli/run.mjs answer yes --user-confirmed "..."`          | Shorthand answer form (also valid)         |
+| `node nullar-ai/src/cli/run.mjs push`                                       | Push only when state is `ready_to_push`    |
+| `node nullar-ai/src/cli/run.mjs status`                                     | Show structured session snapshot           |
+| `node nullar-ai/src/cli/run.mjs reset`                                      | Clear session                              |
 
 Notes:
 
 - No force-push command exists in normal flow.
 - Output is always structured JSON.
 - Unknown/out-of-order actions return structured errors.
+- `answer` requires `--user-confirmed` text in strict mode.
 
 ## LLM Loop (Recommended)
 
@@ -54,9 +55,10 @@ The LLM should never improvise commands. It should follow this loop:
 1. Run `next`
 2. Read JSON fields: `question`, `options`, `allowedCommands`, `state`
 3. Ask user exactly the returned question/options
-4. Run `answer --choice yes|no`
-5. Repeat until `state` is `ready_to_push` or `blocked`
-6. If `ready_to_push`, run `push`
+4. Run `answer --choice yes|no --user-confirmed "<verbatim user answer>"`
+5. If state is `awaiting_push_anyway_decision` and user says yes, also pass `--verification-summary "<what was verified>"`
+6. Repeat until `state` is `ready_to_push` or `blocked`
+7. If `ready_to_push`, run `push`
 
 ## JSON Contract
 
@@ -72,6 +74,9 @@ Common workflow fields:
 - `options`: valid user options (`yes`, `no`)
 - `allowedCommands`: commands currently valid for LLM
 - `sessionId`: current session id (when available)
+- `mustAskUser`: when true, LLM must ask user and cannot auto-decide
+- `forbiddenAutoDecision`: explicit strict-mode flag
+- `requiredAnswerFields`: fields required for `answer`
 
 Issue-validation fields (when issues exist):
 
@@ -85,6 +90,15 @@ On failure:
 - `ok: false`
 - `code`: machine-readable error code
 - `message`: human-readable reason
+
+Strict-mode failure codes:
+
+- `USER_CONFIRMATION_REQUIRED`
+- `VERIFICATION_SUMMARY_REQUIRED`
+- `MISSING_USER_DECISION_AUDIT`
+- `MISSING_USER_CONFIRMATION`
+- `MISSING_VERIFICATION_SUMMARY`
+- `REVIEW_OUTDATED`
 
 Example `next`:
 

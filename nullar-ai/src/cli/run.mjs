@@ -28,13 +28,35 @@ function fail(code, message, details = {}) {
 function parseArgs(argv) {
   const args = argv.slice(2);
   const command = args[0] || 'next';
-  const out = { command, choice: null };
+  const out = {
+    command,
+    choice: null,
+    userConfirmed: null,
+    verificationSummary: null,
+  };
 
   for (let i = 1; i < args.length; i += 1) {
     if (args[i] === '--choice' && args[i + 1]) {
       out.choice = args[i + 1].toLowerCase();
       i += 1;
+      continue;
     }
+
+    if (args[i] === '--user-confirmed' && args[i + 1]) {
+      out.userConfirmed = args[i + 1];
+      i += 1;
+      continue;
+    }
+
+    if (args[i] === '--verification-summary' && args[i + 1]) {
+      out.verificationSummary = args[i + 1];
+      i += 1;
+      continue;
+    }
+  }
+
+  if (command === 'answer' && !out.choice && args[1] && !args[1].startsWith('--')) {
+    out.choice = args[1].toLowerCase();
   }
 
   return out;
@@ -44,6 +66,47 @@ function normalizeChoice(choice) {
   if (choice === 'y' || choice === 'yes') return 'yes';
   if (choice === 'n' || choice === 'no') return 'no';
   return null;
+}
+
+function normalizeText(value) {
+  if (!value || typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function ensureUserConfirmation(userConfirmed) {
+  const normalized = normalizeText(userConfirmed);
+  if (!normalized) {
+    fail('USER_CONFIRMATION_REQUIRED', 'Missing required --user-confirmed text from user.', {
+      requiredFlag: '--user-confirmed',
+      example:
+        'node nullar-ai/src/cli/run.mjs answer --choice yes --user-confirmed "User said: yes, push now"',
+    });
+  }
+  return normalized;
+}
+
+function ensureVerificationSummary(summary) {
+  const normalized = normalizeText(summary);
+  if (!normalized || normalized.length < 20) {
+    fail(
+      'VERIFICATION_SUMMARY_REQUIRED',
+      'Missing required --verification-summary for push-anyway decision.',
+      {
+        requiredFlag: '--verification-summary',
+        minLength: 20,
+        example:
+          'node nullar-ai/src/cli/run.mjs answer --choice yes --user-confirmed "User said push anyway" --verification-summary "Checked each issue; 2 real, 3 stale with file-line evidence."',
+      }
+    );
+  }
+  return normalized;
+}
+
+function recordDecision(session, decision) {
+  const existing = Array.isArray(session.decisions) ? session.decisions : [];
+  existing.push({ ...decision, at: Date.now() });
+  session.decisions = existing;
 }
 
 function ensureSession() {
@@ -81,6 +144,9 @@ function getPromptForState(session) {
       question: 'Run AI code review before push?',
       options: ['yes', 'no'],
       allowedCommands: ['answer'],
+      mustAskUser: true,
+      forbiddenAutoDecision: true,
+      requiredAnswerFields: ['choice', 'userConfirmed'],
     };
   }
 
@@ -92,6 +158,9 @@ function getPromptForState(session) {
         : 'No issues found. Push now?',
       options: ['yes', 'no'],
       allowedCommands: ['answer'],
+      mustAskUser: true,
+      forbiddenAutoDecision: true,
+      requiredAnswerFields: ['choice', 'userConfirmed'],
     };
   }
 
@@ -102,6 +171,9 @@ function getPromptForState(session) {
       question: `Found ${total} issue(s). Push anyway?`,
       options: ['yes', 'no'],
       allowedCommands: ['answer'],
+      mustAskUser: true,
+      forbiddenAutoDecision: true,
+      requiredAnswerFields: ['choice', 'userConfirmed', 'verificationSummaryWhenYes'],
       markers: ['VERIFY_ISSUES_REQUIRED'],
       verificationRequired: {
         marker: '>>> VERIFY_ISSUES_REQUIRED <<<',
@@ -217,6 +289,43 @@ function doPush(session) {
     });
   }
 
+  const decisions = Array.isArray(session.decisions) ? session.decisions : [];
+  if (decisions.length === 0) {
+    fail('MISSING_USER_DECISION_AUDIT', 'Cannot push without recorded user decision evidence.', {
+      required: ['answer --choice <yes|no>', '--user-confirmed "<verbatim user answer>"'],
+    });
+  }
+
+  const lastDecision = decisions[decisions.length - 1];
+  if (!lastDecision.userConfirmed) {
+    fail('MISSING_USER_CONFIRMATION', 'Cannot push without --user-confirmed evidence.', {
+      lastDecision,
+    });
+  }
+
+  if (
+    session.issueCount > 0 &&
+    lastDecision.state === ReviewState.AWAITING_PUSH_ANYWAY_DECISION &&
+    lastDecision.choice === 'yes' &&
+    !lastDecision.verificationSummary
+  ) {
+    fail('MISSING_VERIFICATION_SUMMARY', 'Push-anyway requires verification summary evidence.', {
+      requiredFlag: '--verification-summary',
+    });
+  }
+
+  if (session.review?.head) {
+    const currentHead = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+    if (currentHead !== session.review.head) {
+      fail('REVIEW_OUTDATED', 'HEAD changed after review. Re-run review before pushing.', {
+        reviewedHead: session.review.head,
+        currentHead,
+        requiredCommand:
+          'node nullar-ai/src/cli/run.mjs reset && node nullar-ai/src/cli/run.mjs next',
+      });
+    }
+  }
+
   const commitInfo = getCommitInfo();
   if (commitInfo.hasUpstream && commitInfo.aheadCount === 0) {
     clearSession();
@@ -249,17 +358,24 @@ function doPush(session) {
   }
 }
 
-async function doAnswer(choiceValue) {
+async function doAnswer(choiceValue, userConfirmedValue, verificationSummaryValue) {
   const choice = normalizeChoice(choiceValue);
   if (!choice) {
     fail('INVALID_CHOICE', 'Choice must be yes/no.', { allowedChoices: ['yes', 'no'] });
   }
 
   const session = ensureSession();
+  const userConfirmed = ensureUserConfirmation(userConfirmedValue);
 
   if (session.state === ReviewState.AWAITING_RUN_DECISION) {
     if (choice === 'yes') {
       const updated = await runReview(session);
+      recordDecision(updated, {
+        state: ReviewState.AWAITING_RUN_DECISION,
+        choice,
+        userConfirmed,
+      });
+      saveSession(updated);
       ok({ action: 'answer', choice, ...getPromptForState(updated), sessionId: updated.id });
     }
 
@@ -269,6 +385,11 @@ async function doAnswer(choiceValue) {
       });
     }
 
+    recordDecision(session, {
+      state: ReviewState.AWAITING_RUN_DECISION,
+      choice,
+      userConfirmed,
+    });
     session.state = ReviewState.READY_TO_PUSH;
     saveSession(session);
     ok({ action: 'answer', choice, ...getPromptForState(session), sessionId: session.id });
@@ -279,6 +400,11 @@ async function doAnswer(choiceValue) {
     if (!canTransitionTo(session.state, target)) {
       fail('INVALID_TRANSITION', `Cannot transition to ${target}.`, { state: session.state });
     }
+    recordDecision(session, {
+      state: ReviewState.AWAITING_PUSH_DECISION,
+      choice,
+      userConfirmed,
+    });
     session.state = target;
     saveSession(session);
     ok({ action: 'answer', choice, ...getPromptForState(session), sessionId: session.id });
@@ -289,6 +415,18 @@ async function doAnswer(choiceValue) {
     if (!canTransitionTo(session.state, target)) {
       fail('INVALID_TRANSITION', `Cannot transition to ${target}.`, { state: session.state });
     }
+
+    const decision = {
+      state: ReviewState.AWAITING_PUSH_ANYWAY_DECISION,
+      choice,
+      userConfirmed,
+    };
+
+    if (choice === 'yes') {
+      decision.verificationSummary = ensureVerificationSummary(verificationSummaryValue);
+    }
+
+    recordDecision(session, decision);
     session.state = target;
     saveSession(session);
     ok({ action: 'answer', choice, ...getPromptForState(session), sessionId: session.id });
@@ -301,7 +439,7 @@ async function doAnswer(choiceValue) {
 }
 
 async function main() {
-  const { command, choice } = parseArgs(process.argv);
+  const { command, choice, userConfirmed, verificationSummary } = parseArgs(process.argv);
 
   if (command === 'next') {
     const session = ensureSession();
@@ -309,7 +447,7 @@ async function main() {
   }
 
   if (command === 'answer') {
-    await doAnswer(choice);
+    await doAnswer(choice, userConfirmed, verificationSummary);
   }
 
   if (command === 'push') {
@@ -330,6 +468,11 @@ async function main() {
       noChanges: Boolean(session.noChanges),
       commitRange: session.commitRange ?? null,
       review: session.review ?? null,
+      decisionCount: Array.isArray(session.decisions) ? session.decisions.length : 0,
+      lastDecision:
+        Array.isArray(session.decisions) && session.decisions.length > 0
+          ? session.decisions[session.decisions.length - 1]
+          : null,
       updatedAt: session.updatedAt,
       createdAt: session.createdAt,
     };
@@ -345,6 +488,8 @@ async function main() {
   fail('UNKNOWN_COMMAND', 'Unknown command.', {
     command,
     allowedCommands: ['next', 'answer', 'push', 'status', 'reset'],
+    answerUsage:
+      'node nullar-ai/src/cli/run.mjs answer --choice yes|no --user-confirmed "<verbatim user answer>" [--verification-summary "..."]',
   });
 }
 

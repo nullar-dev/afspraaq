@@ -14,86 +14,66 @@ const MAX_RETRIES = parseInt(process.env.MINIMAX_MAX_RETRIES, 10) || 2;
 const AGENT_CONFIGS = {
   security: {
     name: 'Security',
-    systemPrompt: `You are a SECURITY EXPERT code reviewer. Your ONLY focus is finding security vulnerabilities.
+    systemPrompt: `You are a SECURITY EXPERT code reviewer.
 
-Scan the code for:
-- SQL injection, NoSQL injection
-- XSS (cross-site scripting)
-- Command injection
-- Path traversal
-- Authentication/authorization bypasses
-- Hardcoded secrets, API keys, passwords
-- Unsafe eval(), new Function()
-- Insecure random number generation
-- XML external entity (XXE)
-- Deserialization vulnerabilities
-- Dependency vulnerabilities (check import statements)
-- CORS misconfigurations
-- CSRF vulnerabilities
-- Race conditions in security checks
-- Missing input validation
-- Insecure cryptographic usage
+STRICT OUTPUT FORMAT REQUIRED - Your response will be parsed programmatically.
 
-Be EXTREMELY thorough. Flag anything that could be exploited.
-For each issue, provide: file:line: description
+Output ONLY valid JSON in this exact format:
+{"issues":{"CRITICAL":["file:line - description"],"MAJOR":["file:line - description"],"MINOR":["file:line - description"],"NIT":[]}}
 
-IMPORTANT: Output ONLY the JSON. No explanations, no reasoning, no markdown, no code blocks.
-Start directly with { and end with }.`,
+- CRITICAL: Security vulnerabilities that must be fixed
+- MAJOR: Important security concerns
+- MINOR: Minor security issues or suggestions
+- NIT: Nitpicks, style suggestions
+
+Scan for: SQL injection, XSS, command injection, path traversal, auth bypass, hardcoded secrets, unsafe eval(), insecure crypto, dependency vulns, CORS, CSRF, input validation.
+
+For EACH issue found, add to the appropriate array as: "filepath:lineNumber - issue description"
+If no issues found in a category, use empty array: []
+
+NO markdown, NO code blocks, NO explanations. Start with { and end with }.`,
   },
   logic: {
     name: 'Logic',
-    systemPrompt: `You are a LOGIC AND BUG EXPERT code reviewer. Your ONLY focus is finding logic errors, bugs, and runtime issues.
+    systemPrompt: `You are a LOGIC AND BUG EXPERT code reviewer.
 
-Scan the code for:
-- Null/undefined reference errors
-- Missing error handling
-- Unhandled promise rejections
-- Race conditions
-- Async/await mistakes
-- Off-by-one errors
-- Logic errors in business logic
-- Incorrect variable scope
-- Missing null checks
-- Type coercion bugs
-- Incorrect loop boundaries
-- Memory leaks
-- Resource leaks (unclosed files, connections)
-- Incorrect conditional logic
-- Missing edge case handling
-- Incorrect array/object operations
+STRICT OUTPUT FORMAT REQUIRED - Your response will be parsed programmatically.
 
-Be thorough. Find the bugs that would cause crashes or incorrect behavior.
-For each issue, provide: file:line: description
+Output ONLY valid JSON in this exact format:
+{"issues":{"CRITICAL":["file:line - description"],"MAJOR":["file:line - description"],"MINOR":["file:line - description"],"NIT":[]}}
 
-IMPORTANT: Output ONLY the JSON. No explanations, no reasoning, no markdown, no code blocks.
-Start directly with { and end with }.`,
+- CRITICAL: Bugs causing crashes, data corruption, security issues
+- MAJOR: Logic errors, missing null checks, unhandled promises
+- MINOR: Minor bugs, edge cases, potential issues
+- NIT: Suggestions, improvements
+
+Scan for: Null/undefined errors, missing error handling, race conditions, async mistakes, off-by-one errors, logic errors, type coercion, memory leaks, resource leaks.
+
+For EACH issue found, add to the appropriate array as: "filepath:lineNumber - issue description"
+If no issues found in a category, use empty array: []
+
+NO markdown, NO code blocks, NO explanations. Start with { and end with }.`,
   },
   quality: {
     name: 'Quality',
-    systemPrompt: `You are a CODE QUALITY EXPERT reviewer. Your focus is code maintainability, performance, and best practices.
+    systemPrompt: `You are a CODE QUALITY EXPERT reviewer.
 
-Scan the code for:
-- Performance issues (N+1 queries, unnecessary loops, memory inefficiencies)
-- Code smells and maintainability issues
-- Duplicate code
-- Missing comments for complex logic
-- Overly complex functions
-- Magic numbers/strings
-- Poor variable/function naming
-- Missing type annotations in TypeScript
-- Unused variables or imports
-- TODO/FIXME comments that need attention
-- Inconsistent styling
-- Missing error messages
-- Inefficient data structures
-- Missing accessibility considerations
-- Missing error boundaries (React)
+STRICT OUTPUT FORMAT REQUIRED - Your response will be parsed programmatically.
 
-Focus on code that works but could be improved.
-For each issue, provide: file:line: description
+Output ONLY valid JSON in this exact format:
+{"issues":{"CRITICAL":["file:line - description"],"MAJOR":["file:line - description"],"MINOR":["file:line - description"],"NIT":[]}}
 
-IMPORTANT: Output ONLY the JSON. No explanations, no reasoning, no markdown, no code blocks.
-Start directly with { and end with }.`,
+- CRITICAL: Severe performance issues, critical maintainability problems
+- MAJOR: Code smells, performance concerns, missing docs
+- MINOR: Style issues, minor improvements, magic numbers
+- NIT: Suggestions, nitpicks
+
+Scan for: Performance issues, code smells, duplicate code, missing comments, complex functions, magic numbers, poor naming, unused vars, TODO comments, inconsistent style.
+
+For EACH issue found, add to the appropriate array as: "filepath:lineNumber - issue description"
+If no issues found in a category, use empty array: []
+
+NO markdown, NO code blocks, NO explanations. Start with { and end with }.`,
   },
 };
 
@@ -226,6 +206,43 @@ function convertNonStandardFormat(issues) {
   return converted;
 }
 
+function convertArrayToIssues(items) {
+  const issues = {
+    CRITICAL: [],
+    MAJOR: [],
+    MINOR: [],
+    NIT: [],
+  };
+
+  for (const item of items) {
+    if (typeof item === 'object' && item !== null) {
+      const desc = item.description || item.message || item.issue || JSON.stringify(item);
+      const file = item.file || item.filename || 'unknown';
+      const line = item.line || item.lineNumber || 0;
+      const severity = (item.severity || item.type || item.level || 'MINOR').toUpperCase();
+
+      let formatted = `${file}:${line} - ${desc}`;
+      if (line === 0) {
+        formatted = `${file} - ${desc}`;
+      }
+
+      if (severity.includes('CRITICAL') || severity.includes('HIGH')) {
+        issues.CRITICAL.push(formatted);
+      } else if (severity.includes('MAJOR') || severity.includes('MEDIUM')) {
+        issues.MAJOR.push(formatted);
+      } else if (severity.includes('MINOR') || severity.includes('LOW')) {
+        issues.MINOR.push(formatted);
+      } else {
+        issues.NIT.push(formatted);
+      }
+    } else if (typeof item === 'string' && item.includes(':')) {
+      issues.MINOR.push(item);
+    }
+  }
+
+  return issues;
+}
+
 function parseIssuesJson(reviewText) {
   const result = { valid: false, issues: null, error: null };
 
@@ -302,12 +319,18 @@ function parseIssuesJson(reviewText) {
       return result;
     }
 
-    const issues = {
-      CRITICAL: Array.isArray(issuesData.CRITICAL) ? issuesData.CRITICAL : [],
-      MAJOR: Array.isArray(issuesData.MAJOR) ? issuesData.MAJOR : [],
-      MINOR: Array.isArray(issuesData.MINOR) ? issuesData.MINOR : [],
-      NIT: Array.isArray(issuesData.NIT) ? issuesData.NIT : [],
-    };
+    let issues;
+
+    if (Array.isArray(issuesData)) {
+      issues = convertArrayToIssues(issuesData);
+    } else {
+      issues = {
+        CRITICAL: Array.isArray(issuesData.CRITICAL) ? issuesData.CRITICAL : [],
+        MAJOR: Array.isArray(issuesData.MAJOR) ? issuesData.MAJOR : [],
+        MINOR: Array.isArray(issuesData.MINOR) ? issuesData.MINOR : [],
+        NIT: Array.isArray(issuesData.NIT) ? issuesData.NIT : [],
+      };
+    }
 
     if (
       issues.CRITICAL.length === 0 &&

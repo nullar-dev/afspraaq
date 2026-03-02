@@ -111,12 +111,17 @@ function getFileContext(filePath, lineNumbers, contextLines = CONTEXT_LINES) {
   }
 }
 
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function findUsages(symbols) {
   const usages = {};
 
   for (const func of symbols.functions) {
     if (func.length < 3) continue;
-    const result = execGitGrep(`\\b${func}\\b`);
+    const escaped = escapeRegex(func);
+    const result = execGitGrep(`\\b${escaped}\\b`);
     if (result) {
       const lines = result.split('\n').filter(l => l.trim());
       const fileLines = {};
@@ -135,7 +140,8 @@ function findUsages(symbols) {
 
   for (const cls of symbols.classes) {
     if (cls.length < 3) continue;
-    const result = execGitGrep(`\\b${cls}\\b`);
+    const escaped = escapeRegex(cls);
+    const result = execGitGrep(`\\b${escaped}\\b`);
     if (result) {
       const lines = result.split('\n').filter(l => l.trim());
       const fileLines = {};
@@ -181,9 +187,9 @@ function buildExpandedContext(diff, maxContextChars = 150000) {
 
       const fileContext = getFileContext(file, lines, 8);
       if (fileContext) {
-        context += `### ${symbol} used in ${file}\n`;
-        context += `\`\`\`\n${fileContext}\n\`\`\`\n\n`;
-        contextChars += context.length;
+        const addedContent = `### ${symbol} used in ${file}\n\`\`\`\n${fileContext}\n\`\`\`\n\n`;
+        context += addedContent;
+        contextChars += addedContent.length;
         usageCount++;
       }
     }

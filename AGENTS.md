@@ -120,8 +120,8 @@ When user asks to push code, you MUST follow this exact workflow:
    - If "Yes" → script will run `git push --force-with-lease`
    - If "No" → exit with code 1
 
-### Escape hatches (for CI/automated environments):
+### No Escape Hatches
 
-- `CI=true git push` - bypasses the pre-push hook
-- `SKIP_REVIEW=1 git push` - bypasses the pre-push hook
-- `git push --no-verify` - bypasses all hooks
+There are NO escape hatches documented. The LLM must always ask the user.
+
+The only way to bypass is `git push --no-verify` which bypasses ALL git hooks.

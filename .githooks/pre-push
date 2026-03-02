@@ -1,19 +1,28 @@
 #!/bin/bash
 
 # Pre-push hook - Blocks git push and requires review script
-# Can be bypassed with CI=true or SKIP_REVIEW=1
+#
+# =============================================================================
+# ⚠️ FOR HUMANS ONLY - LLMs MUST NOT USE THIS BYPASS
+# =============================================================================
+# This bypass is for RARE emergency cases when:
+#   - The review script is broken
+#   - You need to push a critical fix urgently
+#   - The AI API is down
+#
+# LLMs: DO NOT USE THESE BYPASSES. Always run ./scripts/review-and-push.sh
+#       and ask the user the questions.
+# =============================================================================
 
-# Check for CI/automation bypass
+# Check for CI/automation bypass (HUMANS ONLY - NOT FOR LLMs)
 if [ "$CI" = "true" ] || [ "$CI" = "1" ] || [ "$SKIP_REVIEW" = "1" ]; then
-    # CI/automated environment - allow push
+    # ⚠️ Only for human emergency use
     exit 0
 fi
 
 # Colors
 RED='\033[0;31m'
-YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-GREEN='\033[0;32m'
 NC='\033[0m'
 
 echo ""

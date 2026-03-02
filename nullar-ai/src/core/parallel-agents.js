@@ -186,12 +186,17 @@ function convertNonStandardFormat(issues) {
           converted.NIT.push(formatted);
         }
       } else if (typeof item === 'string') {
-        if (item.startsWith('{') && item.includes('"issues"')) {
+        const cleanedItem = item.replace(/\\"/g, '"').replace(/^"+|"+$/g, '');
+        if (cleanedItem.startsWith('{') && cleanedItem.includes('issues')) {
           try {
-            const nested = JSON.parse(item);
-            const nestedConverted = convertNonStandardFormat(nested.issues || {});
-            for (const [nKey, nItems] of Object.entries(nestedConverted)) {
-              converted[nKey].push(...nItems);
+            const nested = JSON.parse(cleanedItem);
+            if (nested.issues) {
+              const nestedConverted = convertNonStandardFormat(nested.issues);
+              for (const [nKey, nItems] of Object.entries(nestedConverted)) {
+                converted[nKey].push(...nItems);
+              }
+            } else {
+              converted[key].push(item);
             }
           } catch {
             converted[key].push(item);

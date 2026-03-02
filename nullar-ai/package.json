@@ -1,0 +1,19 @@
+{
+  "name": "@nullar-ai/reviewer",
+  "version": "1.0.0",
+  "description": "AI Code Reviewer - Plug-and-play for any repository",
+  "main": "src/cli/run.mjs",
+  "type": "module",
+  "scripts": {
+    "review": "node src/cli/run.mjs"
+  },
+  "dependencies": {
+    "openai": "^6.25.0"
+  },
+  "keywords": [
+    "ai",
+    "code-review",
+    "minimax"
+  ],
+  "license": "MIT"
+}

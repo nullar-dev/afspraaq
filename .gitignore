@@ -54,3 +54,6 @@ supabase/.temp/
 
 # Review state
 .review-state
+
+# NullarAI
+.nullar-ai/

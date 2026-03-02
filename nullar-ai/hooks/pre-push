@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# =============================================================================
+# NullarAI Pre-Push Hook
+# 
+# This hook BLOCKS git push to ensure code review.
+# Copy this file to: .git/hooks/pre-push
+# Or use: cp nullar-ai/hooks/pre-push .git/hooks/pre-push
+# =============================================================================
+
+echo ""
+echo "============================================"
+echo "🔴 REVIEW REQUIRED"
+echo "============================================"
+echo ""
+echo ">>> FOR LLM: <<<"
+echo "   Run: node nullar-ai/src/cli/run.mjs"
+echo ""
+echo ">>> FOR USER: <<<"
+echo "   The LLM will guide you through the review."
+echo ""
+echo "============================================"
+echo ""
+
+exit 1

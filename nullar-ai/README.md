@@ -32,14 +32,14 @@ node nullar-ai/src/cli/run.mjs next
 
 ## Core Commands
 
-| Command                                                                     | Purpose                                    |
-| --------------------------------------------------------------------------- | ------------------------------------------ |
-| `node nullar-ai/src/cli/run.mjs next`                                       | Get current state + next question          |
-| `node nullar-ai/src/cli/run.mjs answer --choice yes --user-confirmed "..."` | Answer current question with user evidence |
-| `node nullar-ai/src/cli/run.mjs answer yes --user-confirmed "..."`          | Shorthand answer form (also valid)         |
-| `node nullar-ai/src/cli/run.mjs push`                                       | Push only when state is `ready_to_push`    |
-| `node nullar-ai/src/cli/run.mjs status`                                     | Show structured session snapshot           |
-| `node nullar-ai/src/cli/run.mjs reset`                                      | Clear session                              |
+| Command                                                                                        | Purpose                                    |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `node nullar-ai/src/cli/run.mjs next`                                                          | Get current state + next question          |
+| `node nullar-ai/src/cli/run.mjs answer --question-id <id> --choice yes --user-confirmed "..."` | Answer current question with user evidence |
+| `node nullar-ai/src/cli/run.mjs answer yes --question-id <id> --user-confirmed "..."`          | Shorthand answer form (also valid)         |
+| `node nullar-ai/src/cli/run.mjs push`                                                          | Push only when state is `ready_to_push`    |
+| `node nullar-ai/src/cli/run.mjs status`                                                        | Show structured session snapshot           |
+| `node nullar-ai/src/cli/run.mjs reset`                                                         | Clear session                              |
 
 Notes:
 
@@ -55,7 +55,7 @@ The LLM should never improvise commands. It should follow this loop:
 1. Run `next`
 2. Read JSON fields: `question`, `options`, `allowedCommands`, `state`
 3. Ask user exactly the returned question/options
-4. Run `answer --choice yes|no --user-confirmed "<verbatim user answer>"`
+4. Run `answer --question-id <id> --choice yes|no --user-confirmed "<verbatim user answer>"`
 5. If state is `awaiting_push_anyway_decision` and user says yes, also pass `--verification-summary "<what was verified>"`
 6. Repeat until `state` is `ready_to_push` or `blocked`
 7. If `ready_to_push`, run `push`
@@ -74,6 +74,7 @@ Common workflow fields:
 - `options`: valid user options (`yes`, `no`)
 - `allowedCommands`: commands currently valid for LLM
 - `sessionId`: current session id (when available)
+- `questionId`: current question token; required for `answer`
 - `mustAskUser`: when true, LLM must ask user and cannot auto-decide
 - `forbiddenAutoDecision`: explicit strict-mode flag
 - `requiredAnswerFields`: fields required for `answer`
@@ -93,6 +94,9 @@ On failure:
 
 Strict-mode failure codes:
 
+- `QUESTION_ID_REQUIRED`
+- `QUESTION_ID_MISMATCH`
+- `NO_PENDING_QUESTION`
 - `USER_CONFIRMATION_REQUIRED`
 - `VERIFICATION_SUMMARY_REQUIRED`
 - `MISSING_USER_DECISION_AUDIT`

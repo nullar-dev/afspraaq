@@ -14,6 +14,11 @@ import {
 } from '../storage/file-store.js';
 
 const apiKey = process.env.MINIMAX_API_KEY;
+const QUESTION_STATES = new Set([
+  ReviewState.AWAITING_RUN_DECISION,
+  ReviewState.AWAITING_PUSH_DECISION,
+  ReviewState.AWAITING_PUSH_ANYWAY_DECISION,
+]);
 
 function ok(data) {
   process.stdout.write(`${JSON.stringify({ ok: true, ...data }, null, 2)}\n`);
@@ -31,6 +36,7 @@ function parseArgs(argv) {
   const out = {
     command,
     choice: null,
+    questionId: null,
     userConfirmed: null,
     verificationSummary: null,
   };
@@ -38,6 +44,12 @@ function parseArgs(argv) {
   for (let i = 1; i < args.length; i += 1) {
     if (args[i] === '--choice' && args[i + 1]) {
       out.choice = args[i + 1].toLowerCase();
+      i += 1;
+      continue;
+    }
+
+    if (args[i] === '--question-id' && args[i + 1]) {
+      out.questionId = args[i + 1];
       i += 1;
       continue;
     }
@@ -72,6 +84,48 @@ function normalizeText(value) {
   if (!value || typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function generateQuestionId() {
+  return `q_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function refreshQuestionId(session) {
+  if (QUESTION_STATES.has(session.state)) {
+    session.pendingQuestionId = generateQuestionId();
+  } else {
+    delete session.pendingQuestionId;
+  }
+}
+
+function setState(session, nextState) {
+  session.state = nextState;
+  refreshQuestionId(session);
+}
+
+function ensureQuestionId(session, questionId) {
+  const normalized = normalizeText(questionId);
+  if (!normalized) {
+    fail('QUESTION_ID_REQUIRED', 'Missing required --question-id for answer command.', {
+      requiredFlag: '--question-id',
+    });
+  }
+
+  if (!session.pendingQuestionId) {
+    fail('NO_PENDING_QUESTION', 'No pending question token found in session.', {
+      state: session.state,
+    });
+  }
+
+  if (normalized !== session.pendingQuestionId) {
+    fail('QUESTION_ID_MISMATCH', 'Provided question id does not match current question.', {
+      providedQuestionId: normalized,
+      expectedQuestionId: session.pendingQuestionId,
+      state: session.state,
+    });
+  }
+
+  return normalized;
 }
 
 function ensureUserConfirmation(userConfirmed) {
@@ -119,6 +173,10 @@ function ensureSession() {
         issueCount > 0
           ? ReviewState.AWAITING_PUSH_ANYWAY_DECISION
           : ReviewState.AWAITING_PUSH_DECISION;
+      refreshQuestionId(session);
+      saveSession(session);
+    } else if (QUESTION_STATES.has(session.state) && !session.pendingQuestionId) {
+      refreshQuestionId(session);
       saveSession(session);
     }
     return session;
@@ -128,8 +186,13 @@ function ensureSession() {
   const commitRange = getCommitRange();
   session = createSession(diff, commitRange);
 
+  if (QUESTION_STATES.has(session.state) && !session.pendingQuestionId) {
+    refreshQuestionId(session);
+    saveSession(session);
+  }
+
   if (!diff.trim()) {
-    session.state = ReviewState.AWAITING_PUSH_DECISION;
+    setState(session, ReviewState.AWAITING_PUSH_DECISION);
     session.noChanges = true;
     saveSession(session);
   }
@@ -141,18 +204,20 @@ function getPromptForState(session) {
   if (session.state === ReviewState.AWAITING_RUN_DECISION) {
     return {
       state: session.state,
+      questionId: session.pendingQuestionId,
       question: 'Run AI code review before push?',
       options: ['yes', 'no'],
       allowedCommands: ['answer'],
       mustAskUser: true,
       forbiddenAutoDecision: true,
-      requiredAnswerFields: ['choice', 'userConfirmed'],
+      requiredAnswerFields: ['questionId', 'choice', 'userConfirmed'],
     };
   }
 
   if (session.state === ReviewState.AWAITING_PUSH_DECISION) {
     return {
       state: session.state,
+      questionId: session.pendingQuestionId,
       question: session.noChanges
         ? 'No changes to review. Push now?'
         : 'No issues found. Push now?',
@@ -160,7 +225,7 @@ function getPromptForState(session) {
       allowedCommands: ['answer'],
       mustAskUser: true,
       forbiddenAutoDecision: true,
-      requiredAnswerFields: ['choice', 'userConfirmed'],
+      requiredAnswerFields: ['questionId', 'choice', 'userConfirmed'],
     };
   }
 
@@ -168,12 +233,13 @@ function getPromptForState(session) {
     const total = session.issueCount ?? countIssues(session.issues || emptyIssues());
     return {
       state: session.state,
+      questionId: session.pendingQuestionId,
       question: `Found ${total} issue(s). Push anyway?`,
       options: ['yes', 'no'],
       allowedCommands: ['answer'],
       mustAskUser: true,
       forbiddenAutoDecision: true,
-      requiredAnswerFields: ['choice', 'userConfirmed', 'verificationSummaryWhenYes'],
+      requiredAnswerFields: ['questionId', 'choice', 'userConfirmed', 'verificationSummaryWhenYes'],
       markers: ['VERIFY_ISSUES_REQUIRED'],
       verificationRequired: {
         marker: '>>> VERIFY_ISSUES_REQUIRED <<<',
@@ -233,20 +299,20 @@ function emptyIssues() {
 
 async function runReview(session) {
   if (!apiKey && process.env.MOCK_MODE !== 'true') {
-    session.state = ReviewState.FAILED;
+    setState(session, ReviewState.FAILED);
     session.error = 'MINIMAX_API_KEY not set';
     saveSession(session);
     return session;
   }
 
   if (!canTransitionTo(session.state, ReviewState.RUNNING_REVIEW)) {
-    session.state = ReviewState.FAILED;
+    setState(session, ReviewState.FAILED);
     session.error = `Invalid transition: ${session.state} -> ${ReviewState.RUNNING_REVIEW}`;
     saveSession(session);
     return session;
   }
 
-  session.state = ReviewState.RUNNING_REVIEW;
+  setState(session, ReviewState.RUNNING_REVIEW);
   saveSession(session);
 
   try {
@@ -260,10 +326,12 @@ async function runReview(session) {
     session.issueCount = issueCount;
     session.runCount = (session.runCount || 0) + 1;
     session.noChanges = false;
-    session.state =
+    setState(
+      session,
       issueCount > 0
         ? ReviewState.AWAITING_PUSH_ANYWAY_DECISION
-        : ReviewState.AWAITING_PUSH_DECISION;
+        : ReviewState.AWAITING_PUSH_DECISION
+    );
     session.review = {
       wasTruncated: Boolean(result.wasTruncated),
       reviewedAt: Date.now(),
@@ -274,7 +342,7 @@ async function runReview(session) {
     saveSession(session);
     return session;
   } catch (error) {
-    session.state = ReviewState.FAILED;
+    setState(session, ReviewState.FAILED);
     session.error = String(error?.message || error);
     saveSession(session);
     return session;
@@ -358,13 +426,19 @@ function doPush(session) {
   }
 }
 
-async function doAnswer(choiceValue, userConfirmedValue, verificationSummaryValue) {
+async function doAnswer(
+  choiceValue,
+  questionIdValue,
+  userConfirmedValue,
+  verificationSummaryValue
+) {
   const choice = normalizeChoice(choiceValue);
   if (!choice) {
     fail('INVALID_CHOICE', 'Choice must be yes/no.', { allowedChoices: ['yes', 'no'] });
   }
 
   const session = ensureSession();
+  ensureQuestionId(session, questionIdValue);
   const userConfirmed = ensureUserConfirmation(userConfirmedValue);
 
   if (session.state === ReviewState.AWAITING_RUN_DECISION) {
@@ -390,7 +464,7 @@ async function doAnswer(choiceValue, userConfirmedValue, verificationSummaryValu
       choice,
       userConfirmed,
     });
-    session.state = ReviewState.READY_TO_PUSH;
+    setState(session, ReviewState.READY_TO_PUSH);
     saveSession(session);
     ok({ action: 'answer', choice, ...getPromptForState(session), sessionId: session.id });
   }
@@ -405,7 +479,7 @@ async function doAnswer(choiceValue, userConfirmedValue, verificationSummaryValu
       choice,
       userConfirmed,
     });
-    session.state = target;
+    setState(session, target);
     saveSession(session);
     ok({ action: 'answer', choice, ...getPromptForState(session), sessionId: session.id });
   }
@@ -427,7 +501,7 @@ async function doAnswer(choiceValue, userConfirmedValue, verificationSummaryValu
     }
 
     recordDecision(session, decision);
-    session.state = target;
+    setState(session, target);
     saveSession(session);
     ok({ action: 'answer', choice, ...getPromptForState(session), sessionId: session.id });
   }
@@ -439,7 +513,9 @@ async function doAnswer(choiceValue, userConfirmedValue, verificationSummaryValu
 }
 
 async function main() {
-  const { command, choice, userConfirmed, verificationSummary } = parseArgs(process.argv);
+  const { command, choice, questionId, userConfirmed, verificationSummary } = parseArgs(
+    process.argv
+  );
 
   if (command === 'next') {
     const session = ensureSession();
@@ -447,7 +523,7 @@ async function main() {
   }
 
   if (command === 'answer') {
-    await doAnswer(choice, userConfirmed, verificationSummary);
+    await doAnswer(choice, questionId, userConfirmed, verificationSummary);
   }
 
   if (command === 'push') {
@@ -489,7 +565,7 @@ async function main() {
     command,
     allowedCommands: ['next', 'answer', 'push', 'status', 'reset'],
     answerUsage:
-      'node nullar-ai/src/cli/run.mjs answer --choice yes|no --user-confirmed "<verbatim user answer>" [--verification-summary "..."]',
+      'node nullar-ai/src/cli/run.mjs answer --question-id <id> --choice yes|no --user-confirmed "<verbatim user answer>" [--verification-summary "..."]',
   });
 }
 

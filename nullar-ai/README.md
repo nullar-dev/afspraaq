@@ -79,6 +79,7 @@ Common workflow fields:
 - `mustAskUser`: when true, LLM must ask user and cannot auto-decide
 - `forbiddenAutoDecision`: explicit strict-mode flag
 - `requiredAnswerFields`: fields required for `answer`
+- `nextCommandTemplate`: exact command template the LLM should run next
 
 Issue-validation fields (when issues exist):
 
@@ -180,6 +181,8 @@ This matches pre-push protection intent (review what is leaving your machine).
 ## Important Hook Behavior
 
 The pre-push hook blocks direct pushes.
+
+It also auto-runs `node nullar-ai/src/cli/run.mjs next` so the current JSON question is printed immediately when push is blocked.
 
 When NullarAI reaches a valid approved state and runs `push`, it sets an internal env var (`NULLAR_AI_APPROVED=1`) for that command so hook check passes only for that approved attempt.
 

@@ -233,6 +233,7 @@ function getPromptForState(session) {
       mustAskUser: true,
       forbiddenAutoDecision: true,
       requiredAnswerFields: ['questionId', 'choice', 'userConfirmed'],
+      nextCommandTemplate: answerTemplate(session.pendingQuestionId, false),
     };
   }
 
@@ -248,6 +249,7 @@ function getPromptForState(session) {
       mustAskUser: true,
       forbiddenAutoDecision: true,
       requiredAnswerFields: ['questionId', 'choice', 'userConfirmed'],
+      nextCommandTemplate: answerTemplate(session.pendingQuestionId, false),
     };
   }
 
@@ -262,6 +264,7 @@ function getPromptForState(session) {
       mustAskUser: true,
       forbiddenAutoDecision: true,
       requiredAnswerFields: ['questionId', 'choice', 'userConfirmed', 'verificationSummaryWhenYes'],
+      nextCommandTemplate: answerTemplate(session.pendingQuestionId, true),
       markers: ['VERIFY_ISSUES_REQUIRED'],
       verificationRequired: {
         marker: '>>> VERIFY_ISSUES_REQUIRED <<<',
@@ -285,6 +288,7 @@ function getPromptForState(session) {
       question: 'Ready to push.',
       options: [],
       allowedCommands: ['push'],
+      nextCommand: 'node nullar-ai/src/cli/run.mjs push',
     };
   }
 
@@ -317,6 +321,12 @@ function getPromptForState(session) {
 
 function emptyIssues() {
   return { CRITICAL: [], MAJOR: [], MINOR: [], NIT: [] };
+}
+
+function answerTemplate(questionId, withVerification = false) {
+  const base = `node nullar-ai/src/cli/run.mjs answer --question-id ${questionId} --choice <yes|no> --user-confirmed "<full user sentence>"`;
+  if (!withVerification) return base;
+  return `${base} --verification-summary "<required when choice=yes and issues exist>"`;
 }
 
 async function runReview(session) {

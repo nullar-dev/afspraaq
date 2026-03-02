@@ -11,6 +11,7 @@ const timeoutFromEnv = parseInt(process.env.MINIMAX_TIMEOUT_MS, 10);
 const TIMEOUT_MS = Number.isFinite(timeoutFromEnv) && timeoutFromEnv > 0 ? timeoutFromEnv : null;
 const rawRetries = parseInt(process.env.MINIMAX_MAX_RETRIES, 10);
 const MAX_RETRIES = Number.isInteger(rawRetries) ? Math.min(Math.max(rawRetries, 0), 10) : 2;
+const jsonExtractLimit = parseInt(process.env.MINIMAX_JSON_LIMIT, 10) || 200000;
 
 const SHARED_CONTRACT = `OUTPUT CONTRACT (STRICT):
 Return ONLY a valid JSON object that matches EXACTLY this schema:
@@ -332,8 +333,8 @@ function parseIssuesJson(reviewText) {
     jsonStr = codeBlockMatch[1].trim();
   }
 
-  const objMatch = jsonStr.match(/\{[\s\S]{0,50000}\}/);
-  const arrMatch = jsonStr.match(/\[[\s\S]{0,50000}\]/);
+  const objMatch = jsonStr.match(new RegExp(`\\{[\\s\\S]{0,${jsonExtractLimit}}\\}`));
+  const arrMatch = jsonStr.match(new RegExp(`\\[[\\s\\S]{0,${jsonExtractLimit}}\\]`));
 
   if (objMatch) {
     jsonStr = objMatch[0];

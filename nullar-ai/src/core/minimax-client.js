@@ -6,8 +6,9 @@ import { OpenAI } from 'openai';
 
 const MODEL = process.env.MINIMAX_MODEL || 'MiniMax-M2.5';
 const BASE_URL = process.env.MINIMAX_BASE_URL || 'https://api.minimax.io/v1';
-const TIMEOUT_MS = parseInt(process.env.MINIMAX_TIMEOUT_MS, 10) || 20000;
-const MAX_RETRIES = parseInt(process.env.MINIMAX_MAX_RETRIES, 10) || 1;
+const timeoutFromEnv = parseInt(process.env.MINIMAX_TIMEOUT_MS, 10);
+const TIMEOUT_MS = Number.isFinite(timeoutFromEnv) && timeoutFromEnv > 0 ? timeoutFromEnv : null;
+const MAX_RETRIES = parseInt(process.env.MINIMAX_MAX_RETRIES, 10) || 2;
 const MAX_DIFF_SIZE = parseInt(process.env.MINIMAX_MAX_DIFF_SIZE, 10) || 60000;
 
 function mockReview() {
@@ -37,22 +38,50 @@ Total: 4 issues`,
   };
 }
 
-async function callWithRetry(fn, retries = MAX_RETRIES) {
+function isTimeoutError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  const code = String(error?.code || '').toLowerCase();
+  return (
+    message.includes('timed out') ||
+    message.includes('timeout') ||
+    code === 'etimedout' ||
+    code === 'aborted'
+  );
+}
+
+async function callWithRetry(fn, retries = MAX_RETRIES, hooks = {}) {
   let lastError;
   for (let i = 0; i <= retries; i++) {
+    hooks.onAttempt?.({ attempt: i + 1, maxAttempts: retries + 1 });
     try {
       return await fn();
     } catch (error) {
       lastError = error;
       if (i < retries) {
-        await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+        const delayMs = 1000 * (i + 1);
+        hooks.onRetry?.({
+          attempt: i + 1,
+          maxAttempts: retries + 1,
+          delayMs,
+          error,
+        });
+        await new Promise(r => setTimeout(r, delayMs));
       }
     }
   }
+
+  if (isTimeoutError(lastError)) {
+    const timeoutSecs = TIMEOUT_MS ? Math.floor(TIMEOUT_MS / 1000) : null;
+    throw new Error(
+      `MiniMax request timed out${timeoutSecs ? ` after ${timeoutSecs}s` : ''} (attempts: ${MAX_RETRIES + 1}). ` +
+        `Try increasing MINIMAX_TIMEOUT_MS (example: 90000) or reducing diff size.`
+    );
+  }
+
   throw lastError;
 }
 
-export async function callMiniMaxReview(diff, apiKey) {
+export async function callMiniMaxReview(diff, apiKey, hooks = {}) {
   if (process.env.MOCK_MODE === 'true') {
     return mockReview();
   }
@@ -98,29 +127,37 @@ Here is the code diff to review:
 ${truncatedDiff}
 \`\`\``;
 
-  const client = new OpenAI({
+  const clientOptions = {
     apiKey,
     baseURL: BASE_URL,
-    timeout: TIMEOUT_MS,
-  });
+  };
+  if (TIMEOUT_MS) {
+    clientOptions.timeout = TIMEOUT_MS;
+  }
 
-  const response = await callWithRetry(async () => {
-    return await client.chat.completions.create({
-      model: MODEL,
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are an expert code reviewer. Output ONLY valid JSON - no explanations, no markdown, no text before or after. Start your response with { and end with }. Format: {"issues":{"CRITICAL":[],"MAJOR":[],"MINOR":[],"NIT":[]},"summary":"..."}',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      temperature: 0.3,
-    });
-  });
+  const client = new OpenAI(clientOptions);
+
+  const response = await callWithRetry(
+    async () => {
+      return await client.chat.completions.create({
+        model: MODEL,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are an expert code reviewer. Output ONLY valid JSON - no explanations, no markdown, no text before or after. Start your response with { and end with }. Format: {"issues":{"CRITICAL":[],"MAJOR":[],"MINOR":[],"NIT":[]},"summary":"..."}',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.3,
+      });
+    },
+    MAX_RETRIES,
+    hooks
+  );
 
   const raw = response.choices[0].message.content || '';
   const parseResult = parseIssuesJson(raw);

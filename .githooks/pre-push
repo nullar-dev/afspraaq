@@ -7,7 +7,7 @@
 #   1. DO NOT use --no-verify to bypass
 #   2. DO run: node nullar-ai/src/cli/run.mjs next
 #   3. Ask user using returned JSON question/options
-#   4. Run: node nullar-ai/src/cli/run.mjs answer yes|no --question-id <id> --user-confirmed "<user said ...>"
+#   4. Run: node nullar-ai/src/cli/run.mjs answer yes|no --question-id <id> --user-confirmed "<full user sentence>"
 #   5. Repeat until state=ready_to_push, then run push command
 #
 # NEVER bypass this hook - always use the review CLI

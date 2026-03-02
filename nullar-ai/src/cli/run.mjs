@@ -25,6 +25,14 @@ function ok(data) {
   process.exit(0);
 }
 
+function logInfo(message, extra = null) {
+  if (extra) {
+    process.stderr.write(`[NullarAI] ${message}: ${extra}\n`);
+    return;
+  }
+  process.stderr.write(`[NullarAI] ${message}\n`);
+}
+
 function fail(code, message, details = {}) {
   process.stdout.write(`${JSON.stringify({ ok: false, code, message, ...details }, null, 2)}\n`);
   process.exit(1);
@@ -137,6 +145,20 @@ function ensureUserConfirmation(userConfirmed) {
         'node nullar-ai/src/cli/run.mjs answer --choice yes --user-confirmed "User said: yes, push now"',
     });
   }
+
+  const lowered = normalized.toLowerCase();
+  const weakPlaceholders = new Set(['true', 'false', 'yes', 'no', 'ok', 'done', 'y', 'n']);
+  if (weakPlaceholders.has(lowered) || normalized.length < 8) {
+    fail(
+      'USER_CONFIRMATION_TOO_WEAK',
+      'User confirmation must be a meaningful verbatim sentence.',
+      {
+        required: 'Use the exact user wording, not boolean placeholders.',
+        example: 'User said: yes push these commits now',
+      }
+    );
+  }
+
   return normalized;
 }
 
@@ -314,11 +336,15 @@ async function runReview(session) {
 
   setState(session, ReviewState.RUNNING_REVIEW);
   saveSession(session);
+  logInfo('Review started', `session=${session.id}`);
 
   try {
     const diff = getPushDiff();
+    logInfo('Collected push diff', `${diff.length} chars`);
     session.diff = diff;
+    logInfo('Calling MiniMax API');
     const result = await callMiniMaxReview(diff, apiKey);
+    logInfo('MiniMax response received');
     const issues = result.issues || emptyIssues();
     const issueCount = countIssues(issues);
 
@@ -340,11 +366,13 @@ async function runReview(session) {
     };
 
     saveSession(session);
+    logInfo('Review completed', `issues=${issueCount}`);
     return session;
   } catch (error) {
     setState(session, ReviewState.FAILED);
     session.error = String(error?.message || error);
     saveSession(session);
+    logInfo('Review failed', session.error);
     return session;
   }
 }
@@ -405,12 +433,14 @@ function doPush(session) {
   }
 
   try {
+    logInfo('Pushing commits to remote');
     const output = execSync('git push', {
       encoding: 'utf-8',
       stdio: 'pipe',
       env: { ...process.env, NULLAR_AI_APPROVED: '1' },
     });
     clearSession();
+    logInfo('Push completed successfully');
     ok({
       action: 'push',
       result: 'success',

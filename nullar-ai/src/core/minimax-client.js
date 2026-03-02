@@ -6,8 +6,8 @@ import { OpenAI } from 'openai';
 
 const MODEL = process.env.MINIMAX_MODEL || 'MiniMax-M2.5';
 const BASE_URL = process.env.MINIMAX_BASE_URL || 'https://api.minimax.io/v1';
-const TIMEOUT_MS = parseInt(process.env.MINIMAX_TIMEOUT_MS, 10) || 30000;
-const MAX_RETRIES = parseInt(process.env.MINIMAX_MAX_RETRIES, 10) || 2;
+const TIMEOUT_MS = parseInt(process.env.MINIMAX_TIMEOUT_MS, 10) || 20000;
+const MAX_RETRIES = parseInt(process.env.MINIMAX_MAX_RETRIES, 10) || 1;
 const MAX_DIFF_SIZE = parseInt(process.env.MINIMAX_MAX_DIFF_SIZE, 10) || 60000;
 
 function mockReview() {

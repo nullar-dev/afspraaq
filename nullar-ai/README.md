@@ -47,6 +47,7 @@ Notes:
 - Output is always structured JSON.
 - Unknown/out-of-order actions return structured errors.
 - `answer` requires `--user-confirmed` text in strict mode.
+- NullarAI prints progress logs to stderr (`[NullarAI] ...`) while review/push runs.
 
 ## LLM Loop (Recommended)
 
@@ -98,6 +99,7 @@ Strict-mode failure codes:
 - `QUESTION_ID_MISMATCH`
 - `NO_PENDING_QUESTION`
 - `USER_CONFIRMATION_REQUIRED`
+- `USER_CONFIRMATION_TOO_WEAK`
 - `VERIFICATION_SUMMARY_REQUIRED`
 - `MISSING_USER_DECISION_AUDIT`
 - `MISSING_USER_CONFIRMATION`
@@ -170,8 +172,8 @@ This matches pre-push protection intent (review what is leaving your machine).
 | `MINIMAX_API_KEY`       | Yes (unless mock) | MiniMax API key                                       |
 | `MINIMAX_BASE_URL`      | No                | Custom endpoint (default `https://api.minimax.io/v1`) |
 | `MINIMAX_MODEL`         | No                | Model override                                        |
-| `MINIMAX_TIMEOUT_MS`    | No                | API timeout (default `30000`)                         |
-| `MINIMAX_MAX_RETRIES`   | No                | Retry count (default `2`)                             |
+| `MINIMAX_TIMEOUT_MS`    | No                | API timeout (default `20000`)                         |
+| `MINIMAX_MAX_RETRIES`   | No                | Retry count (default `1`)                             |
 | `MINIMAX_MAX_DIFF_SIZE` | No                | Max diff chars sent to model (default `60000`)        |
 | `MOCK_MODE`             | No                | Set `true` for local testing without API              |
 

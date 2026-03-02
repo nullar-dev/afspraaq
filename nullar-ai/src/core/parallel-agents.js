@@ -651,7 +651,7 @@ export async function runParallelAgents(context, apiKey, hooks = {}) {
     runAgent(client, agentKey, context, hooks).catch(error => ({
       agent: AGENT_CONFIGS[agentKey].name,
       issues: null,
-      error: String(error.message || error),
+      error: String(error?.message ?? error),
     }))
   );
 

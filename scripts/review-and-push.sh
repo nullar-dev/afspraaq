@@ -1,54 +1,14 @@
 #!/bin/bash
 
 # =============================================================================
-# AI CODE REVIEW PUSH SCRIPT
+# 🚨 FOR LLM: READ THIS FIRST!
 # =============================================================================
-# PURPOSE: This script must be run INSTEAD of 'git push' to push code.
-#          It runs an AI code review before pushing.
-#
-# FOR LLMs (including opencode): FOLLOW THESE INSTRUCTIONS EXACTLY
-# =============================================================================
-#
-# USAGE:
-#   ./scripts/review-and-push.sh              # Start fresh
-#   ./scripts/review-and-push.sh run_review   # After user says "yes" to run
-#   ./scripts/review-and-push.sh skip_review  # After user says "no" to skip
-#   ./scripts/review-and-push.sh rerun        # After user says "yes" to rerun
-#   ./scripts/review-and-push.sh continue     # After user says "no" to rerun (check issues)
-#   ./scripts/review-and-push.sh push_anyway   # After user says "yes" to push anyway
-#   ./scripts/review-and-push.sh block_push    # After user says "no" to push anyway
-#
-# OUTPUT MARKERS - The script outputs special markers that LLMs should detect:
-#
-# >>> ASK_USER_RUN_REVIEW <<<
-#   - LLM must ask user: "Run AI Code Review? [y/n]"
-#   - Use question tool with options: "Yes, run review" / "No, skip"
-#   - If user says NO → run: ./scripts/review-and-push.sh skip_review
-#   - If user says YES → run: ./scripts/review-and-push.sh run_review
-#
-# >>> REVIEW_COMPLETE <<<
-#   - Review has finished, output follows
-#   - LLM extracts issue count from output
-#
-# >>> ASK_USER_RERUN <<<
-#   - LLM must ask user: "Re-run review? [y/n]"  
-#   - Use question tool with options: "Yes, re-run" / "No, continue"
-#   - If user says YES → run: ./scripts/review-and-push.sh rerun
-#   - If user says NO → run: ./scripts/review-and-push.sh continue
-#
-# >>> ASK_USER_PUSH_ANYWAY <<<
-#   - Issues were found (total > 0)
-#   - LLM must ask user: "Push anyways? [y/n]"
-#   - Use question tool with options: "Yes, push anyway" / "No, block"
-#   - If user says NO → run: ./scripts/review-and-push.sh block_push
-#   - If user says YES → run: ./scripts/review-and-push.sh push_anyway
-#
-# >>> PUSH_SUCCESS <<<
-#   - Push was successful
-#
-# >>> PUSH_BLOCKED <<<
-#   - Push was blocked (user said no)
-#
+# When you run this script:
+#   1. It will output markers like ">>> ASK_USER_RUN_REVIEW <<<"
+#   2. When you see ANY marker starting with ">>> ASK_USER_":
+#      - STOP - Do NOT try to pipe input
+#      - Use the QUESTION TOOL to ask the user
+#      - After user answers, re-run this script
 # =============================================================================
 
 set -e
@@ -87,6 +47,7 @@ check_changes() {
 check_prereqs() {
     if [ -z "$MINIMAX_API_KEY" ]; then
         echo -e "${RED}❌ MINIMAX_API_KEY not set${NC}"
+        echo "Add to ~/.bashrc: export MINIMAX_API_KEY=your-key"
         exit 1
     fi
     if ! command -v node &> /dev/null; then
@@ -95,11 +56,8 @@ check_prereqs() {
     fi
 }
 
-# ============================================
-# COMMAND: run_review (user said YES to run)
-# ============================================
-cmd_run_review() {
-    check_prereqs
+# Run the review
+run_review() {
     get_remote_branch
     
     echo ""
@@ -109,9 +67,25 @@ cmd_run_review() {
     echo ""
     echo -e "${BLUE}🔍 Running review on ${commit_range}...${NC}"
     echo ""
+    echo ">>> REVIEW_IN_PROGRESS_DO_NOTHING <<<"
+    echo "       >>> ⚠️ LLM: READ EVERYTHING:<<<"
+    echo "████████████████████████████████████████"
+    echo "   >>> 🚨 LLM: THE REVIEW IS RUNNING! <<<"
+    echo "                                         "
+    echo " >>> DO NOT RUN THIS SCRIPT AGAIN! <<<"
+    echo "     >>> DO NOT RUN ANY COMMAND! <<<"
+    echo " >>> JUST WAIT FOR OUTPUT TO APPEAR! <<<"
+    echo ">>> YOU MUST DO NOTHING EVEN IF IT TAKES 1 HOUR! <<<"
+    echo "                                         "
+    echo " >>> WHEN REVIEW FINISHES YOU'LL SEE: <<<"
+    echo "          '>>> REVIEW_DONE <<<'"
+    echo "████████████████████████████████████████"
     
     review_output=$(node scripts/ai-code-reviewer.js "$commit_range" 2>&1)
     
+    echo ""
+    echo ">>> REVIEW_DONE <<<"
+    echo ""
     echo "$review_output"
     
     # Extract issue count
@@ -124,76 +98,34 @@ cmd_run_review() {
     fi
     
     echo ""
-    echo ">>> REVIEW_COMPLETE <<<"
-    echo ""
-    echo ">>> ASK_USER_RERUN <<<"
-    echo ""
-    echo "Re-run review?"
-}
-
-# ============================================
-# COMMAND: continue (user said NO to rerun)
-# ============================================
-cmd_continue() {
-    get_remote_branch
-    
-    # Re-run review to get issue count (we need it)
-    review_output=$(node scripts/ai-code-reviewer.js "$commit_range" 2>&1)
-    
-    # Extract issue count
-    total_issues=0
-    if echo "$review_output" | grep -qE "Total:[[:space:]]+[0-9]+"; then
-        parsed=$(echo "$review_output" | grep -oE "Total:[[:space:]]+[0-9]+" | grep -oE "[0-9]+" | head -1)
-        if [[ "$parsed" =~ ^[0-9]+$ ]]; then
-            total_issues=$parsed
-        fi
-    fi
     
     if [ "$total_issues" -gt 0 ]; then
-        echo ""
         echo -e "${YELLOW}⚠️  Found ${total_issues} issue(s)${NC}"
         echo ""
         echo ">>> ASK_USER_PUSH_ANYWAY <<<"
         echo ""
+        echo "⚠️  LLM: USE THE QUESTION TOOL TO ASK USER!"
+        echo "    Command: question tool"
+        echo "    Question: 'Push anyways?'"
+        echo "    Options: 'Yes' / 'No'"
+        echo "    After user answers → re-run: ./scripts/review-and-push.sh"
+        echo ""
         echo "Push anyways?"
     else
         echo ""
-        echo -e "${GREEN}✅ No issues found, pushing...${NC}"
-        git push --force-with-lease
-        echo ">>> PUSH_SUCCESS <<<"
+        echo ">>> ASK_USER_RERUN <<<"
+        echo ""
+        echo "⚠️  LLM: USE THE QUESTION TOOL TO ASK USER!"
+        echo "    Command: question tool"
+        echo "    Question: 'Re-run review?'"
+        echo "    Options: 'Yes' / 'No'"
+        echo "    After user answers → re-run: ./scripts/review-and-push.sh"
+        echo ""
+        echo "Re-run review?"
     fi
 }
 
-# ============================================
-# COMMAND: push_anyway (user said YES to push)
-# ============================================
-cmd_push_anyway() {
-    echo -e "${YELLOW}⚠️  Pushing despite issues (user override)${NC}"
-    git push --force-with-lease
-    echo ">>> PUSH_SUCCESS <<<"
-}
-
-# ============================================
-# COMMAND: block_push (user said NO)
-# ============================================
-cmd_block_push() {
-    echo -e "${RED}❌ Push blocked by user${NC}"
-    echo ">>> PUSH_BLOCKED <<<"
-    exit 1
-}
-
-# ============================================
-# COMMAND: skip_review (user said NO)
-# ============================================
-cmd_skip_review() {
-    echo -e "${BLUE}⏭️  Skipping review, pushing now...${NC}"
-    git push --force-with-lease
-    echo ">>> PUSH_SUCCESS <<<"
-}
-
-# ============================================
-# DEFAULT: Ask user to run review
-# ============================================
+# Main
 check_prereqs
 check_changes
 
@@ -201,8 +133,13 @@ echo ""
 echo "============================================"
 echo -e "${BLUE}🤖 NullarAI Code Review${NC}"
 echo "============================================"
-
 echo ""
 echo ">>> ASK_USER_RUN_REVIEW <<<"
+echo ""
+echo "⚠️  LLM: USE THE QUESTION TOOL TO ASK USER!"
+echo "    Command: question tool"
+echo "    Question: 'Do you want to run an AI Code Review before pushing?'"
+echo "    Options: 'Yes' / 'No'"
+echo "    After user answers → re-run: ./scripts/review-and-push.sh"
 echo ""
 echo "Run AI Code Review?"

@@ -1,5 +1,17 @@
 #!/bin/bash
 
+# =============================================================================
+# 🚨 FOR LLM: READ THIS FIRST!
+# =============================================================================
+# This hook BLOCKS git push. When you see this message:
+#   1. DO NOT use CI=true, SKIP_REVIEW=1, or --no-verify
+#   2. DO run: ./scripts/review-and-push.sh
+#   3. The script will show markers - use question tool to ask user
+#   4. After user answers - re-run the script
+#
+# NEVER bypass this hook - always use the review script
+# =============================================================================
+
 # Pre-push hook - Blocks git push and requires review script
 #
 # =============================================================================
@@ -29,6 +41,13 @@ echo ""
 echo "============================================"
 echo -e "${RED}🔴 REVIEW REQUIRED${NC}"
 echo "============================================"
+echo ""
+echo ">>> FOR LLM: <<<"
+echo "   YOU must run this command (not the user):"
+echo "   ./scripts/review-and-push.sh"
+echo ""
+echo ">>> FOR USER: <<<"
+echo "   The LLM will guide you through the review."
 echo ""
 echo "You must run the AI code review before pushing."
 echo ""

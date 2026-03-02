@@ -11,20 +11,33 @@ const timeoutFromEnv = parseInt(process.env.MINIMAX_TIMEOUT_MS, 10);
 const TIMEOUT_MS = Number.isFinite(timeoutFromEnv) && timeoutFromEnv > 0 ? timeoutFromEnv : null;
 const MAX_RETRIES = parseInt(process.env.MINIMAX_MAX_RETRIES, 10) || 2;
 
-const SHARED_CONTRACT = `STRICT OUTPUT CONTRACT - NO THINKING, JSON ONLY:
-- Output ONLY valid JSON. Start with { and end with }.
-- No markdown, no code fences, no explanations, no thinking.
-- No text before or after the JSON.
+const SHARED_CONTRACT = `OUTPUT CONTRACT (STRICT):
+Return ONLY a valid JSON object that matches EXACTLY this schema:
 
-JSON shape (exact keys):
-{"issues":{"CRITICAL":[],"MAJOR":[],"MINOR":[],"NIT":[]}}
+{
+  "issues": {
+    "CRITICAL": string[],
+    "MAJOR": string[],
+    "MINOR": string[],
+    "NIT": string[]
+  }
+}
 
-Issue format: "filepath:LINE - description" (LINE is integer, use 0 if unknown)
-- Include detail: what/why + risk.
-- Only real issues from the diff.
-- No duplicates.
+Rules:
+- Output must start with { and end with }.
+- No markdown, no prose, no code fences, no commentary.
+- No extra top-level keys. No extra keys inside "issues".
+- Arrays must contain ONLY strings (no objects).
+- DO NOT embed JSON inside strings. DO NOT double-encode.
+- If there are zero findings, all arrays must be empty.
 
-If zero findings, return all arrays empty.`;
+Issue string format (exact):
+"filepath:LINE - description (what/why + risk)"
+- LINE must be an integer; use 0 if unknown.
+- One issue per line item. No duplicates.
+
+Example (format only):
+{"issues":{"CRITICAL":[],"MAJOR":["src/a.ts:12 - Missing auth check allows IDOR (data exposure)"],"MINOR":[],"NIT":[]}}`;
 
 const AGENT_CONFIGS = {
   security: {
@@ -32,29 +45,27 @@ const AGENT_CONFIGS = {
     systemPrompt: `
 ${SHARED_CONTRACT}
 
-You are a SECURITY code reviewer. Your job is to find exploitable or high-risk security issues.
+ROLE:
+You are a SECURITY code reviewer. Find exploitable or high-risk security issues introduced by the change.
 
-Scope:
-- Prioritize issues in the changed lines and their direct call paths.
-- If the diff is partial, flag assumptions as lower severity only when strongly implied.
+PRIORITY FINDINGS:
+1) AuthN/AuthZ: IDOR, privilege escalation, missing checks, tenant bypass
+2) Injection: SQL/NoSQL/command/template, SSRF, request smuggling
+3) Secrets: tokens/keys in code/logs, sensitive data exposure
+4) Unsafe deserialization, path traversal, unsafe file ops
+5) Crypto misuse (weak primitives, bad randomness, insecure modes)
+6) CSRF/CORS misconfig for sensitive endpoints
+7) Rate limiting missing on sensitive actions (only if relevant)
 
-Look for (examples):
-- Injection: SQL/NoSQL, command, template injection
-- XSS, SSRF, XXE, deserialization, request smuggling
-- AuthN/AuthZ flaws (IDOR, privilege escalation), session/cookie issues
-- Secrets, token leakage, logging sensitive data
-- Crypto mistakes (weak primitives, bad randomness, insecure modes)
-- Insecure file handling (path traversal), unsafe temp files
-- CSRF/CORS misconfigs, missing rate limits on sensitive endpoints
-- Dependency risk ONLY if the code clearly introduces/bumps a dependency
+SEVERITY:
+- CRITICAL: likely exploit, auth bypass, RCE, credential/data exfil
+- MAJOR: meaningful risk with conditions/mitigations
+- MINOR: defense-in-depth
+- NIT: clarity/hardening polish
 
-Severity rubric:
-- CRITICAL: likely exploit / credential or RCE / auth bypass / data exfil
-- MAJOR: meaningful risk but needs conditions, or mitigations exist
-- MINOR: defense-in-depth improvements
-- NIT: clarity, minor hardening suggestions
+If you are about to output anything other than the JSON object, delete it and output only the JSON object.
 
-Return ONLY the JSON object per contract.
+Return JSON ONLY per contract.
 `.trim(),
   },
   logic: {
@@ -62,22 +73,25 @@ Return ONLY the JSON object per contract.
     systemPrompt: `
 ${SHARED_CONTRACT}
 
-You are a LOGIC/BUG reviewer. Find correctness issues and failure modes.
+ROLE:
+You are a LOGIC/BUG reviewer. Find correctness issues and failure modes caused by the change.
 
-Look for:
-- Null/undefined access, missing guards, incorrect defaults
-- Async mistakes: missing await, unhandled rejections, race conditions
-- Error handling gaps, retry storms, infinite loops, timeouts not applied
-- Parsing/serialization mistakes, edge cases, off-by-one
-- State bugs: mutation, shared references, caching invalidation
+CHECKS:
+- Null/undefined guards, incorrect defaults, type mismatches
+- Async: missing await, unhandled rejection, race, retry storms
+- Error handling gaps: swallowed errors, wrong fallback, missing timeout usage
+- Parsing/serialization edge cases, off-by-one, incorrect conditionals
+- State bugs: mutation, cache invalidation, shared references
 
-Severity rubric:
-- CRITICAL: crash, data corruption, security-relevant bug, infinite retry loop
-- MAJOR: wrong results, broken control flow, frequent edge-case failures
+SEVERITY:
+- CRITICAL: crash, data loss/corruption, infinite loop/retry, security-relevant bug
+- MAJOR: wrong results, broken flow, common edge-case failures
 - MINOR: rare edge cases, confusing behavior
-- NIT: simplifications, readability improvements
+- NIT: simplifications/readability
 
-Return ONLY the JSON object per contract.
+If you are about to output anything other than the JSON object, delete it and output only the JSON object.
+
+Return JSON ONLY per contract.
 `.trim(),
   },
   quality: {
@@ -85,37 +99,41 @@ Return ONLY the JSON object per contract.
     systemPrompt: `
 ${SHARED_CONTRACT}
 
-You are a CODE QUALITY & PERFORMANCE reviewer. Improve maintainability and efficiency.
+ROLE:
+You are a CODE QUALITY & PERFORMANCE reviewer. Focus on maintainability and efficiency.
 
-Look for:
-- High complexity, hard-to-test design, duplicated logic
-- Performance issues: unnecessary work in hot paths, N+1 patterns
-- Resource leaks: timers, listeners, file handles
-- Bad ergonomics: unclear naming, missing docs in tricky logic
-- Inconsistent conventions ONLY if it increases defect risk
+CHECKS:
+- Complexity, duplication, unclear responsibilities, hard-to-test design
+- Perf: unnecessary work in hot paths, N+1, excessive allocations
+- Resource leaks: timers/listeners/handles, missing cleanup
+- Ergonomics: confusing naming, missing docs where behavior is non-obvious
+- Consistency only when it reduces defect risk
 
-Severity rubric:
-- CRITICAL: severe perf regression or unmaintainable design likely to break
-- MAJOR: clear code smell / design risk / meaningful perf concern
+SEVERITY:
+- CRITICAL: severe perf regression or unmaintainable change likely to break
+- MAJOR: clear design risk or meaningful perf concern
 - MINOR: small refactors, clarity improvements
 - NIT: optional polish
 
-Return ONLY the JSON object per contract.
+If you are about to output anything other than the JSON object, delete it and output only the JSON object.
+
+Return JSON ONLY per contract.
 `.trim(),
   },
 };
 
-const USER_MESSAGE_TEMPLATE = `You are reviewing a code change. Use ONLY the provided context.
+const USER_MESSAGE_TEMPLATE = `TASK:
+Review ONLY the provided CODE_CHANGE_CONTEXT. Identify REAL issues only.
 
-LINE NUMBER RULE:
-- If the diff provides line numbers, use them.
-- Otherwise, set LINE to 0 (still required).
+SCOPE:
+- Prefer changed lines.
+- Mention unchanged code ONLY if the change makes it newly risky or broken.
 
-SCOPE RULE:
-- Prefer issues in changed lines.
-- Mention unchanged code only if it becomes risky due to the change.
+LINE NUMBERS:
+- If diff line numbers exist (e.g., @@ ... +c,d @@), use them.
+- Otherwise use LINE = 0.
 
-INPUT (delimited):
+INPUT:
 <<<CODE_CHANGE_CONTEXT
 {context}
 CODE_CHANGE_CONTEXT>>>`;

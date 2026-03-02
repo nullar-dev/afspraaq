@@ -155,7 +155,7 @@ function findUsages(symbols) {
   return usages;
 }
 
-function buildExpandedContext(diff, maxContextChars = 80000) {
+function buildExpandedContext(diff, maxContextChars = 150000) {
   const symbols = extractSymbolsFromDiff(diff);
   const changedFiles = getChangedFiles(diff);
 

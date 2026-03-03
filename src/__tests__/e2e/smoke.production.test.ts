@@ -6,7 +6,10 @@ test.describe('Production-safe auth/access smoke', () => {
     await expect(page).toHaveURL(/\/login$/);
     // Wait for Suspense to resolve and content to load
     await page.waitForLoadState('networkidle');
-    await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
+    // Wait for the actual content (not just the Suspense fallback)
+    await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible({
+      timeout: 10000,
+    });
     await expect(page.getByLabel(/email address/i)).toBeVisible();
     await expect(page.getByLabel(/password/i)).toBeVisible();
 

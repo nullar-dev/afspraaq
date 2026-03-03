@@ -87,7 +87,10 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: 'other-project-audience', iss: 'https://api.supabase.co/auth/v1' },
+                user: {
+                  aud: 'other-project-audience',
+                  iss: 'https://api.supabase.co/auth/v1',
+                },
               },
             },
             error: null,
@@ -295,8 +298,8 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
       expect(result.error).toBe('expired');
     });
 
-    it('handles tokens with unrealistic expiry (far future)', async () => {
-      // Token valid for 10 years (suspicious)
+    it('rejects tokens with excessive lifetime (far future)', async () => {
+      // Token valid for 10 years (security risk)
       const farFuture = Math.floor(Date.now() / 1000) + 315360000; // 10 years
 
       mockCreateClient.mockResolvedValue({
@@ -317,9 +320,11 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
         },
       });
 
-      // Still accepts it (actual validation should be done by Supabase)
+      // SECURITY: Rejects tokens with excessive lifetime (> 24 hours)
       const result = await validateJWTSecurity();
-      expect(result.valid).toBe(true);
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe('excessive_lifetime');
+      expect(result.message).toContain('24 hours');
     });
   });
 

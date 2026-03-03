@@ -13,6 +13,7 @@ export interface JWTValidationResult {
   email?: string | undefined;
   error?:
     | 'expired'
+    | 'excessive_lifetime'
     | 'invalid_signature'
     | 'invalid_audience'
     | 'invalid_issuer'
@@ -69,6 +70,20 @@ export async function validateJWTSecurity(): Promise<JWTValidationResult> {
         error: 'expired',
         message: 'Token has expired',
       };
+    }
+
+    // SECURITY: Validate maximum token lifetime (24 hours)
+    // Prevents tokens with excessive expiry (e.g., 10 years) from being accepted
+    const MAX_TOKEN_LIFETIME_SECONDS = 24 * 60 * 60; // 24 hours
+    if (session.expires_at) {
+      const tokenLifetime = session.expires_at - now;
+      if (tokenLifetime > MAX_TOKEN_LIFETIME_SECONDS) {
+        return {
+          valid: false,
+          error: 'excessive_lifetime',
+          message: 'Token lifetime exceeds maximum allowed (24 hours)',
+        };
+      }
     }
 
     // Verify audience (aud claim) - must match our Supabase project

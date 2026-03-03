@@ -220,9 +220,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (csrfToken) {
         headers[CSRF_HEADER_NAME] = csrfToken;
       } else {
-        // SECURITY: Log warning when proceeding without CSRF protection
-        // This can happen on first page load before middleware sets the cookie
-        console.warn('[SECURITY] Proceeding without CSRF token - request may fail');
+        // SECURITY: Fail fast if CSRF token is missing
+        // This prevents requests from proceeding without CSRF protection
+        console.error('[SECURITY] CSRF token required but not found - aborting request');
+        throw new Error('CSRF token required - please refresh the page');
       }
 
       const response = await fetchWithTimeout(

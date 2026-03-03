@@ -340,7 +340,8 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('auth-state').textContent).toBe('yes');
       expect(screen.getByTestId('email').textContent).toBe('');
     });
-    expect(warnSpy).toHaveBeenCalledWith('Profile ensure request failed', { status: 500 });
+    // SECURITY: CSRF token is now mandatory - request fails fast without it
+    expect(warnSpy).toHaveBeenCalledWith('[SECURITY] CSRF token cookie not found');
 
     act(() => {
       authCallback?.('SIGNED_IN', {

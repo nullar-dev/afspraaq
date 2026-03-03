@@ -85,7 +85,7 @@ describe('JWT Security Validation', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: {}, // No aud claim
+                user: { iss: 'https://placeholder.supabase.co/auth/v1' }, // No aud claim
               },
             },
             error: null,
@@ -107,7 +107,10 @@ describe('JWT Security Validation', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: 'some-other-audience', iss: 'https://api.supabase.co/auth/v1' },
+                user: {
+                  aud: 'some-other-audience',
+                  iss: 'https://placeholder.supabase.co/auth/v1',
+                },
               },
             },
             error: null,

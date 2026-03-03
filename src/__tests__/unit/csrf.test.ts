@@ -91,6 +91,23 @@ describe('CSRF Protection Library', () => {
       expect(result).toBe(false);
     });
 
+    it('returns false for empty string header token (AI vulnerability concern)', () => {
+      // This test verifies the fix for the AI-reported vulnerability:
+      // "Empty string header token should be rejected"
+      // Empty string is falsy, so !'' is true, correctly triggering rejection
+      const validCookieToken = generateCsrfToken();
+      const result = validateCsrfToken('', validCookieToken.token);
+      expect(result).toBe(false);
+    });
+
+    it('validateAndRotateToken rejects empty header token even with valid cookie', () => {
+      // Verify the complete flow: empty header + valid cookie = rejection
+      const validCookieToken = generateCsrfToken();
+      const result = validateAndRotateToken('', validCookieToken);
+      expect(result.valid).toBe(false);
+      expect(result.shouldRotate).toBe(true);
+    });
+
     it('returns false for tokens of different lengths', () => {
       const result = validateCsrfToken('short', 'muchlongertoken');
       expect(result).toBe(false);

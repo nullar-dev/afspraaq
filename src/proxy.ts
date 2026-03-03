@@ -122,6 +122,14 @@ export async function proxy(request: NextRequest) {
 
   // Check if this is a state-changing request that needs CSRF validation
   if (requiresCsrfValidation(request.method)) {
+    // Explicitly reject empty header tokens
+    if (!headerToken || headerToken === '') {
+      return applySecurityHeaders(
+        NextResponse.json({ error: 'CSRF token required' }, { status: 403 }),
+        nonce
+      );
+    }
+
     const validation = validateAndRotateToken(headerToken, existingToken);
 
     if (!validation.valid) {

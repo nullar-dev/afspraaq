@@ -47,7 +47,8 @@ export function generateCsrfToken(config: Partial<CsrfConfig> = {}): CsrfToken {
  */
 export function validateCsrfToken(headerToken: string, cookieToken: string): boolean {
   // Early return if either token is missing/invalid
-  if (!headerToken || !cookieToken) {
+  // Explicit check for empty string, null, or undefined
+  if (!headerToken || headerToken === '' || !cookieToken || cookieToken === '') {
     return false;
   }
 

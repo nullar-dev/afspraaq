@@ -13,6 +13,7 @@ import type { AuthChangeEvent, Session, User as SupabaseUser } from '@supabase/s
 import { getSupabaseClient } from '@/utils/supabase/client';
 import { mapAuthError } from '@/lib/auth-errors';
 import { fetchWithTimeout } from '@/lib/http';
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/csrf';
 
 interface User {
   id: string;
@@ -74,6 +75,30 @@ function toAuthUser(user: SupabaseUser | null): User | null {
     firstName: firstName || 'User',
     lastName,
   };
+}
+
+/**
+ * Get CSRF token from cookie for double-submit pattern
+ * Returns null if cookie not found or invalid
+ */
+function getCsrfTokenFromCookie(): string | null {
+  try {
+    const cookies = document.cookie.split(';');
+    const csrfCookie = cookies.find(cookie => cookie.trim().startsWith(`${CSRF_COOKIE_NAME}=`));
+
+    if (!csrfCookie) return null;
+
+    const parts = csrfCookie.split('=');
+    if (parts.length < 2) return null;
+
+    const cookieValue = decodeURIComponent(parts[1] || '');
+    if (!cookieValue) return null;
+
+    const parsed = JSON.parse(cookieValue);
+    return parsed.token || null;
+  } catch {
+    return null;
+  }
 }
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -147,18 +172,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const ensureProfileRow = useCallback(async () => {
     try {
+      // Get CSRF token for double-submit pattern
+      const csrfToken = getCsrfTokenFromCookie();
+      const headers: Record<string, string> = {
+        'x-requested-with': 'XMLHttpRequest',
+      };
+
+      // Include CSRF token if available
+      if (csrfToken) {
+        headers[CSRF_HEADER_NAME] = csrfToken;
+      }
+
       const response = await fetchWithTimeout(
         '/api/auth/profile/ensure',
         {
           method: 'POST',
           credentials: 'include',
           cache: 'no-store',
-          headers: {
-            'x-requested-with': 'XMLHttpRequest',
-          },
+          headers,
         },
         10_000
       );
+
+      // Handle CSRF errors specifically
+      if (response.status === 403) {
+        const data = await response.json().catch(() => ({}));
+        if (data.error?.includes('CSRF')) {
+          console.warn('CSRF validation failed - token may be expired, will retry on next request');
+          return;
+        }
+      }
+
       if (!response.ok) {
         console.warn('Profile ensure request failed', { status: response.status });
       }

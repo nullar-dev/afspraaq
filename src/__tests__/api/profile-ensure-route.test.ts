@@ -5,6 +5,7 @@ import {
   GET,
   __resetEnsureProfileRateLimitForTests,
 } from '@/app/api/auth/profile/ensure/route';
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, generateCsrfToken } from '@/lib/csrf';
 
 const mockCreateClient = vi.fn();
 const mockUpsert = vi.fn();
@@ -16,15 +17,23 @@ vi.mock('@/utils/supabase/server', () => ({
 describe('auth profile ensure route', () => {
   let consoleErrorSpy: MockInstance;
   let consoleWarnSpy: MockInstance;
+  let csrfToken: ReturnType<typeof generateCsrfToken>;
 
-  const makeRequest = (url = 'http://localhost:3000/api/auth/profile/ensure') =>
-    new NextRequest(url, {
+  const makeRequest = (url = 'http://localhost:3000/api/auth/profile/ensure') => {
+    const request = new NextRequest(url, {
       method: 'POST',
       headers: {
         origin: 'http://localhost:3000',
         'x-requested-with': 'XMLHttpRequest',
+        [CSRF_HEADER_NAME]: csrfToken.token,
       },
     });
+
+    // Add CSRF cookie to request
+    request.cookies.set(CSRF_COOKIE_NAME, JSON.stringify(csrfToken));
+
+    return request;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -32,6 +41,7 @@ describe('auth profile ensure route', () => {
     __resetEnsureProfileRateLimitForTests();
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    csrfToken = generateCsrfToken();
   });
 
   afterEach(() => {
@@ -121,8 +131,12 @@ describe('auth profile ensure route', () => {
   it('returns 403 when browser request header is missing', async () => {
     const request = new NextRequest('http://localhost:3000/api/auth/profile/ensure', {
       method: 'POST',
-      headers: { origin: 'http://localhost:3000' },
+      headers: {
+        origin: 'http://localhost:3000',
+        [CSRF_HEADER_NAME]: csrfToken.token,
+      },
     });
+    request.cookies.set(CSRF_COOKIE_NAME, JSON.stringify(csrfToken));
     const response = await POST(request);
     const body = await response.json();
     expect(response.status).toBe(403);
@@ -132,8 +146,12 @@ describe('auth profile ensure route', () => {
   it('returns 403 when origin is missing', async () => {
     const request = new NextRequest('http://localhost:3000/api/auth/profile/ensure', {
       method: 'POST',
-      headers: { 'x-requested-with': 'XMLHttpRequest' },
+      headers: {
+        'x-requested-with': 'XMLHttpRequest',
+        [CSRF_HEADER_NAME]: csrfToken.token,
+      },
     });
+    request.cookies.set(CSRF_COOKIE_NAME, JSON.stringify(csrfToken));
     const response = await POST(request);
     const body = await response.json();
     expect(response.status).toBe(403);
@@ -157,8 +175,10 @@ describe('auth profile ensure route', () => {
       headers: {
         origin: 'https://admin.example.com',
         'x-requested-with': 'XMLHttpRequest',
+        [CSRF_HEADER_NAME]: csrfToken.token,
       },
     });
+    request.cookies.set(CSRF_COOKIE_NAME, JSON.stringify(csrfToken));
 
     const response = await POST(request);
     const body = await response.json();
@@ -175,8 +195,10 @@ describe('auth profile ensure route', () => {
       headers: {
         origin: 'https://app.example.com',
         'x-requested-with': 'XMLHttpRequest',
+        [CSRF_HEADER_NAME]: csrfToken.token,
       },
     });
+    request.cookies.set(CSRF_COOKIE_NAME, JSON.stringify(csrfToken));
     const response = await POST(request);
     const body = await response.json();
     expect(response.status).toBe(403);

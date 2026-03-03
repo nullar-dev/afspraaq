@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GET, POST, __resetRateLimitStoreForTests } from '@/app/api/bookings/confirmation/route';
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, generateCsrfToken } from '@/lib/csrf';
 
 const mockCreateClient = vi.fn();
 
@@ -12,6 +13,24 @@ describe('bookings confirmation route', () => {
   const originalEnv = process.env;
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
   let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+  let csrfToken: ReturnType<typeof generateCsrfToken>;
+
+  const makeRequest = (
+    url = 'http://localhost:3000/api/bookings/confirmation',
+    extraHeaders: Record<string, string> = {}
+  ) => {
+    const request = new NextRequest(url, {
+      method: 'POST',
+      headers: {
+        origin: 'http://localhost:3000',
+        'x-requested-with': 'XMLHttpRequest',
+        [CSRF_HEADER_NAME]: csrfToken.token,
+        ...extraHeaders,
+      },
+    });
+    request.cookies.set(CSRF_COOKIE_NAME, JSON.stringify(csrfToken));
+    return request;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -19,6 +38,7 @@ describe('bookings confirmation route', () => {
     process.env.ALLOWED_ORIGINS = 'http://localhost:3000';
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    csrfToken = generateCsrfToken();
   });
 
   afterEach(() => {
@@ -28,7 +48,7 @@ describe('bookings confirmation route', () => {
     consoleWarnSpy.mockRestore();
   });
 
-  it('returns 403 when origin is missing or invalid', async () => {
+  it('returns 403 when CSRF token is missing', async () => {
     mockCreateClient.mockResolvedValue({
       auth: {
         getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u1' } } }),
@@ -38,8 +58,27 @@ describe('bookings confirmation route', () => {
     const request = new NextRequest('http://localhost:3000/api/bookings/confirmation', {
       method: 'POST',
       headers: {
+        origin: 'http://localhost:3000',
         'x-requested-with': 'XMLHttpRequest',
       },
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error).toContain('CSRF');
+  });
+
+  it('returns 403 when origin is missing or invalid', async () => {
+    mockCreateClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u1' } } }),
+      },
+    });
+
+    const request = makeRequest('http://localhost:3000/api/bookings/confirmation', {
+      origin: '',
     });
 
     const response = await POST(request);
@@ -56,8 +95,10 @@ describe('bookings confirmation route', () => {
       method: 'POST',
       headers: {
         origin: 'http://localhost:3000',
+        [CSRF_HEADER_NAME]: csrfToken.token,
       },
     });
+    request.cookies.set(CSRF_COOKIE_NAME, JSON.stringify(csrfToken));
 
     const response = await POST(request);
     const body = await response.json();
@@ -81,8 +122,10 @@ describe('bookings confirmation route', () => {
       headers: {
         origin: 'https://app.example.com',
         'x-requested-with': 'XMLHttpRequest',
+        [CSRF_HEADER_NAME]: csrfToken.token,
       },
     });
+    request.cookies.set(CSRF_COOKIE_NAME, JSON.stringify(csrfToken));
 
     const response = await POST(request);
     const body = await response.json();
@@ -105,8 +148,10 @@ describe('bookings confirmation route', () => {
       headers: {
         origin: 'https://app.example.com',
         'x-requested-with': 'XMLHttpRequest',
+        [CSRF_HEADER_NAME]: csrfToken.token,
       },
     });
+    request.cookies.set(CSRF_COOKIE_NAME, JSON.stringify(csrfToken));
 
     const first = await POST(request);
     const second = await POST(request);
@@ -122,11 +167,8 @@ describe('bookings confirmation route', () => {
       },
     });
 
-    const request = new NextRequest('http://localhost:3000/api/bookings/confirmation', {
-      method: 'POST',
-      headers: {
-        'x-requested-with': 'XMLHttpRequest',
-      },
+    const request = makeRequest('http://localhost:3000/api/bookings/confirmation', {
+      origin: '',
     });
 
     const response = await POST(request);
@@ -143,13 +185,7 @@ describe('bookings confirmation route', () => {
   it('returns 503 when auth client is unavailable', async () => {
     mockCreateClient.mockResolvedValue(null);
 
-    const request = new NextRequest('http://localhost:3000/api/bookings/confirmation', {
-      method: 'POST',
-      headers: {
-        origin: 'http://localhost:3000',
-        'x-requested-with': 'XMLHttpRequest',
-      },
-    });
+    const request = makeRequest();
 
     const response = await POST(request);
     const body = await response.json();
@@ -168,13 +204,7 @@ describe('bookings confirmation route', () => {
       },
     });
 
-    const request = new NextRequest('http://localhost:3000/api/bookings/confirmation', {
-      method: 'POST',
-      headers: {
-        origin: 'http://localhost:3000',
-        'x-requested-with': 'XMLHttpRequest',
-      },
-    });
+    const request = makeRequest();
 
     const response = await POST(request);
     const body = await response.json();
@@ -193,13 +223,7 @@ describe('bookings confirmation route', () => {
       },
     });
 
-    const request = new NextRequest('http://localhost:3000/api/bookings/confirmation', {
-      method: 'POST',
-      headers: {
-        origin: 'http://localhost:3000',
-        'x-requested-with': 'XMLHttpRequest',
-      },
-    });
+    const request = makeRequest();
 
     const response = await POST(request);
     const body = await response.json();
@@ -217,12 +241,8 @@ describe('bookings confirmation route', () => {
       },
     });
 
-    const request = new NextRequest('https://app.example.com/api/bookings/confirmation', {
-      method: 'POST',
-      headers: {
-        origin: 'https://admin.example.com',
-        'x-requested-with': 'XMLHttpRequest',
-      },
+    const request = makeRequest('https://app.example.com/api/bookings/confirmation', {
+      origin: 'https://admin.example.com',
     });
 
     const response = await POST(request);
@@ -236,13 +256,8 @@ describe('bookings confirmation route', () => {
       },
     });
 
-    const request = new NextRequest('http://localhost:3000/api/bookings/confirmation', {
-      method: 'POST',
-      headers: {
-        origin: 'http://localhost:3000',
-        'x-requested-with': 'XMLHttpRequest',
-        'x-forwarded-for': '203.0.113.10',
-      },
+    const request = makeRequest('http://localhost:3000/api/bookings/confirmation', {
+      'x-forwarded-for': '203.0.113.10',
     });
 
     let response: Awaited<ReturnType<typeof POST>> | null = null;
@@ -268,13 +283,8 @@ describe('bookings confirmation route', () => {
 
     let response: Awaited<ReturnType<typeof POST>> | null = null;
     for (let i = 0; i < 31; i += 1) {
-      const request = new NextRequest('http://localhost:3000/api/bookings/confirmation', {
-        method: 'POST',
-        headers: {
-          origin: 'http://localhost:3000',
-          'x-requested-with': 'XMLHttpRequest',
-          'user-agent': `agent-${i}`,
-        },
+      const request = makeRequest('http://localhost:3000/api/bookings/confirmation', {
+        'user-agent': `agent-${i}`,
       });
       response = await POST(request);
     }
@@ -303,13 +313,7 @@ describe('bookings confirmation route', () => {
       if (i === 10) {
         vi.setSystemTime(new Date('2026-01-01T00:01:05.000Z'));
       }
-      const request = new NextRequest('http://localhost:3000/api/bookings/confirmation', {
-        method: 'POST',
-        headers: {
-          origin: 'http://localhost:3000',
-          'x-requested-with': 'XMLHttpRequest',
-        },
-      });
+      const request = makeRequest();
       response = await POST(request);
       expect(response.status).toBe(200);
     }

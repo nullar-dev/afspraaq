@@ -168,9 +168,11 @@ async function callWithRetry(client, messages, hooks = {}) {
       lastError = error;
       const status = error.status;
       const isRetryable = status === 429 || status >= 500;
-      if (!isRetryable && i >= retries - 1) {
+      // If error is not retryable, throw immediately (don't waste time on retries)
+      if (!isRetryable) {
         throw error;
       }
+      // Only retry if we have more attempts left
       if (i < retries - 1) {
         const delayMs = 1000 * Math.pow(2, i);
         hooks.onRetry?.({ delayMs, error });

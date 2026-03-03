@@ -102,6 +102,31 @@ export async function validateJWTSecurity(): Promise<JWTValidationResult> {
       };
     }
 
+    // Verify issuer (iss claim) - must be from our Supabase auth server
+    // SECURITY: Defense in depth - even though Supabase may verify internally,
+    // explicit validation prevents issuer confusion attacks
+    const tokenIss = (session.user as { iss?: string })?.iss;
+    if (!tokenIss) {
+      return {
+        valid: false,
+        error: 'missing_claims',
+        message: 'Token missing issuer claim',
+      };
+    }
+
+    // Validate issuer is our Supabase auth server
+    const expectedIssuer = supabaseUrl
+      ? `${new URL(supabaseUrl).origin}/auth/v1`
+      : 'https://api.supabase.co/auth/v1';
+
+    if (tokenIss !== expectedIssuer) {
+      return {
+        valid: false,
+        error: 'invalid_issuer',
+        message: 'Token issuer mismatch',
+      };
+    }
+
     // Get user to verify the token is still valid
     const {
       data: { user },

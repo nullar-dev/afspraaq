@@ -67,12 +67,6 @@ test.describe('Session Expiry', () => {
       // Wait for button to be visible
       await expect(extendButton).toBeVisible({ timeout: 10000 });
 
-      // Get initial session state (if accessible)
-      await page.evaluate(() => {
-        // Try to get session time from any exposed state
-        return (window as unknown as { __SESSION_TIME__?: number }).__SESSION_TIME__;
-      });
-
       // Click extend session
       await extendButton.click();
 

@@ -37,7 +37,7 @@ describe('JWT Security Validation', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) - 60, // 60 seconds ago
-                user: { aud: 'authenticated' },
+                user: { aud: 'authenticated', iss: 'https://api.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -60,7 +60,7 @@ describe('JWT Security Validation', () => {
             data: {
               session: {
                 // No expires_at
-                user: { aud: 'authenticated' },
+                user: { aud: 'authenticated', iss: 'https://api.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -107,7 +107,7 @@ describe('JWT Security Validation', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: 'some-other-audience' },
+                user: { aud: 'some-other-audience', iss: 'https://api.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -129,7 +129,7 @@ describe('JWT Security Validation', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: 'authenticated' },
+                user: { aud: 'authenticated', iss: 'https://api.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -189,7 +189,7 @@ describe('JWT Security Validation', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: 'authenticated' },
+                user: { aud: 'authenticated', iss: 'https://api.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -295,7 +295,7 @@ describe('JWT Security Validation', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: 'authenticated' },
+                user: { aud: 'authenticated', iss: 'https://api.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -332,7 +332,7 @@ describe('JWT Security Validation', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: 'authenticated' },
+                user: { aud: 'authenticated', iss: 'https://api.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -367,7 +367,7 @@ describe('JWT Security Validation', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: 'authenticated' },
+                user: { aud: 'authenticated', iss: 'https://api.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -418,7 +418,7 @@ describe('JWT Security Validation', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: 'authenticated' },
+                user: { aud: 'authenticated', iss: 'https://api.supabase.co/auth/v1' },
               },
             },
             error: null,

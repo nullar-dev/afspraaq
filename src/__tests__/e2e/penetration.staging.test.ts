@@ -303,18 +303,23 @@ test.describe('Security Penetration Tests', () => {
           }
         }
 
-        // SECURITY FIX: Test should verify actual rate limiting behavior
-        // After 5 failed attempts, user should see error feedback
-        const errorLocator = page.getByText(/invalid|error|failed|too many|unable|rate/i).first();
+        // SECURITY: Verify actual rate limiting is enforced
+        // After 5 failed attempts, 6th attempt with CORRECT password should be blocked
+        await page.getByLabel(/email address/i).fill(user.email);
+        await page.getByLabel(/password/i).fill(user.password); // Correct password
+        await page.getByRole('button', { name: /sign in/i }).click();
+        await page.waitForTimeout(500);
 
-        // Wait up to 3 seconds for error message to appear
-        const errorVisible = await errorLocator.isVisible().catch(() => false);
+        // Should still show rate limit error, NOT successfully log in
+        const urlAfter6th = page.url();
+        expect(urlAfter6th).toContain('/login');
 
-        // Must show error feedback to user
-        expect(errorVisible).toBe(true);
-
-        // Verify still on login page (not logged in)
-        expect(page.url()).toContain('/login');
+        // Verify rate limiting feedback is shown
+        const rateLimitError = await page
+          .getByText(/too many|rate.limit|locked|attempt|wait/i)
+          .isVisible()
+          .catch(() => false);
+        expect(rateLimitError).toBe(true);
       } finally {
         await deleteEphemeralUser(user.id);
       }
@@ -383,12 +388,10 @@ test.describe('Security Penetration Tests', () => {
         // Navigate to protected route
         await page.goto('/booking/vehicle');
 
-        // Check if session is still valid (it might be, which is OK for this test)
-        // The important thing is that the server validates the session
+        // SECURITY: After replaying old cookies, session MUST be invalid
+        // This verifies server-side session invalidation works correctly
         const url = page.url();
-
-        // Page should either redirect to login or load (depending on session validity)
-        expect(url.includes('/login') || url.includes('/booking/vehicle')).toBe(true);
+        expect(url).toContain('/login');
       } finally {
         await deleteEphemeralUser(user.id);
       }
@@ -428,8 +431,9 @@ test.describe('Security Penetration Tests', () => {
           method: 'POST',
         });
 
-        // Request should succeed (200) or fail gracefully (not 500)
-        expect([200, 401, 403]).toContain(response.status);
+        // SECURITY: Authenticated request from legitimate origin should succeed
+        // 401/403 would indicate CORS or auth issues, not successful CORS enforcement
+        expect(response.status).toBe(200);
       } finally {
         await deleteEphemeralUser(user.id);
       }

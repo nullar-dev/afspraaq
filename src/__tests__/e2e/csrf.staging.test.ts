@@ -134,6 +134,39 @@ test.describe('CSRF Protection', () => {
     }
   });
 
+  test('API rejects POST with x-requested-with header but no CSRF token', async ({ page }) => {
+    const user = await createEphemeralUser('user');
+
+    try {
+      // Login first
+      await page.goto('/login');
+      await page.getByLabel(/email address/i).fill(user.email);
+      await page.getByLabel(/password/i).fill(user.password);
+      await page.getByRole('button', { name: /sign in/i }).click();
+      await expect(page).toHaveURL(/\/booking\/vehicle$/);
+
+      // Try to make POST request with x-requested-with but NO CSRF token
+      const response = await page.evaluate(async () => {
+        const res = await fetch('/api/auth/profile/ensure', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-requested-with': 'XMLHttpRequest',
+            // No X-CSRF-Token header
+          },
+          credentials: 'include',
+        });
+        return { status: res.status, body: await res.json() };
+      });
+
+      // Should reject with 403 - defense in depth requires both headers
+      expect(response.status).toBe(403);
+      expect(response.body.error).toContain('CSRF');
+    } finally {
+      await deleteEphemeralUser(user.id);
+    }
+  });
+
   test('CSRF token is generated on first page load', async ({ page }) => {
     await page.goto('/login');
 

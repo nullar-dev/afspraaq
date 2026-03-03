@@ -128,6 +128,11 @@ function getCsrfTokenFromCookie(): string | null {
     return parsed.token;
   } catch (error) {
     // SECURITY: Log error details for monitoring without exposing token content
+    // Check for URIError specifically - malformed URL encoding should not cause silent failure
+    if (error instanceof URIError) {
+      console.error('[SECURITY] Malformed URL encoding in CSRF cookie - possible tampering');
+      return null;
+    }
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('[SECURITY] Failed to parse CSRF token:', errorMessage);
     return null;
@@ -235,8 +240,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (response.status === 403) {
         const data = await response.json().catch(() => ({}));
         if (data.error?.includes('CSRF')) {
-          console.warn('CSRF validation failed - token may be expired, will retry on next request');
-          return;
+          // SECURITY: CSRF failures must propagate error to caller
+          // Silent failures leave users unaware their action failed for security reasons
+          console.error('[SECURITY] CSRF validation failed - token expired or invalid');
+          throw new Error('CSRF token expired - please refresh and try again');
         }
       }
 

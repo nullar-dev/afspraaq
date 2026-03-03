@@ -26,7 +26,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: 'authenticated' },
+                user: { aud: 'authenticated', iss: 'https://api.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -53,7 +53,11 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: 'authenticated', id: 'attacker-id' },
+                user: {
+                  aud: 'authenticated',
+                  iss: 'https://api.supabase.co/auth/v1',
+                  id: 'attacker-id',
+                },
               },
             },
             error: null,
@@ -83,7 +87,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: 'other-project-audience' },
+                user: { aud: 'other-project-audience', iss: 'https://api.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -105,7 +109,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: 'malicious-audience' },
+                user: { aud: 'malicious-audience', iss: 'https://api.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -129,7 +133,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: 'authenticated' },
+                user: { aud: 'authenticated', iss: 'https://api.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -154,7 +158,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: 'authenticated' },
+                user: { aud: 'authenticated', iss: 'https://api.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -183,6 +187,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
                 user: {
                   aud: 'authenticated',
+                  iss: 'https://api.supabase.co/auth/v1',
                   user_metadata: { role: 'admin' }, // Malicious role claim in JWT
                 },
               },
@@ -225,6 +230,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
                 user: {
                   aud: 'authenticated',
+                  iss: 'https://api.supabase.co/auth/v1',
                   // Attacker tries to inject admin role
                   user_metadata: {
                     role: 'admin',
@@ -274,7 +280,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
             data: {
               session: {
                 expires_at: yesterday,
-                user: { aud: 'authenticated' },
+                user: { aud: 'authenticated', iss: 'https://api.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -299,7 +305,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
             data: {
               session: {
                 expires_at: farFuture,
-                user: { aud: 'authenticated' },
+                user: { aud: 'authenticated', iss: 'https://api.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -355,7 +361,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: null },
+                user: { aud: null, iss: 'https://api.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -377,7 +383,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: {}, // No aud property
+                user: { iss: 'https://api.supabase.co/auth/v1' }, // No aud property
               },
             },
             error: null,

@@ -12,6 +12,10 @@ vi.mock('@/utils/supabase/server', () => ({
   createClient: () => mockCreateClient(),
 }));
 
+// Set up test environment with consistent Supabase URL
+const TEST_SUPABASE_URL = 'https://test.supabase.co';
+process.env.NEXT_PUBLIC_SUPABASE_URL = TEST_SUPABASE_URL;
+
 describe('JWT Security - Advanced Attack Scenarios', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -26,7 +30,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: 'authenticated', iss: 'https://api.supabase.co/auth/v1' },
+                user: { aud: 'authenticated', iss: 'https://test.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -55,7 +59,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
                 user: {
                   aud: 'authenticated',
-                  iss: 'https://api.supabase.co/auth/v1',
+                  iss: 'https://test.supabase.co/auth/v1',
                   id: 'attacker-id',
                 },
               },
@@ -89,7 +93,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
                 user: {
                   aud: 'other-project-audience',
-                  iss: 'https://api.supabase.co/auth/v1',
+                  iss: 'https://test.supabase.co/auth/v1',
                 },
               },
             },
@@ -112,7 +116,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: 'malicious-audience', iss: 'https://api.supabase.co/auth/v1' },
+                user: { aud: 'malicious-audience', iss: 'https://test.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -136,7 +140,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: 'authenticated', iss: 'https://api.supabase.co/auth/v1' },
+                user: { aud: 'authenticated', iss: 'https://test.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -163,7 +167,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: 'authenticated', iss: 'https://api.supabase.co/auth/v1' },
+                user: { aud: 'authenticated', iss: 'https://test.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -192,7 +196,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
                 user: {
                   aud: 'authenticated',
-                  iss: 'https://api.supabase.co/auth/v1',
+                  iss: 'https://test.supabase.co/auth/v1',
                   user_metadata: { role: 'admin' }, // Malicious role claim in JWT
                 },
               },
@@ -235,7 +239,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
                 user: {
                   aud: 'authenticated',
-                  iss: 'https://api.supabase.co/auth/v1',
+                  iss: 'https://test.supabase.co/auth/v1',
                   // Attacker tries to inject admin role
                   user_metadata: {
                     role: 'admin',
@@ -285,7 +289,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
             data: {
               session: {
                 expires_at: yesterday,
-                user: { aud: 'authenticated', iss: 'https://api.supabase.co/auth/v1' },
+                user: { aud: 'authenticated', iss: 'https://test.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -310,7 +314,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
             data: {
               session: {
                 expires_at: farFuture,
-                user: { aud: 'authenticated', iss: 'https://api.supabase.co/auth/v1' },
+                user: { aud: 'authenticated', iss: 'https://test.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -368,7 +372,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { aud: null, iss: 'https://api.supabase.co/auth/v1' },
+                user: { aud: null, iss: 'https://test.supabase.co/auth/v1' },
               },
             },
             error: null,
@@ -390,7 +394,7 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
             data: {
               session: {
                 expires_at: Math.floor(Date.now() / 1000) + 3600,
-                user: { iss: 'https://api.supabase.co/auth/v1' }, // No aud property
+                user: { iss: 'https://test.supabase.co/auth/v1' }, // No aud property
               },
             },
             error: null,

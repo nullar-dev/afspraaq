@@ -80,23 +80,56 @@ function toAuthUser(user: SupabaseUser | null): User | null {
 /**
  * Get CSRF token from cookie for double-submit pattern
  * Returns null if cookie not found or invalid
+ * SECURITY: Logs errors for security monitoring without exposing sensitive data
  */
 function getCsrfTokenFromCookie(): string | null {
   try {
     const cookies = document.cookie.split(';');
     const csrfCookie = cookies.find(cookie => cookie.trim().startsWith(`${CSRF_COOKIE_NAME}=`));
 
-    if (!csrfCookie) return null;
+    if (!csrfCookie) {
+      // SECURITY: Log missing CSRF token - potential configuration issue or attack
+      console.warn('[SECURITY] CSRF token cookie not found');
+      return null;
+    }
 
-    const parts = csrfCookie.split('=');
-    if (parts.length < 2) return null;
+    // SECURITY: Use indexOf + slice instead of split to handle values containing '='
+    const equalsIndex = csrfCookie.indexOf('=');
+    if (equalsIndex === -1) {
+      console.error('[SECURITY] Malformed CSRF cookie - no equals sign');
+      return null;
+    }
 
-    const cookieValue = decodeURIComponent(parts[1] || '');
-    if (!cookieValue) return null;
+    const cookieValue = decodeURIComponent(csrfCookie.slice(equalsIndex + 1).trim());
+    if (!cookieValue) {
+      console.error('[SECURITY] Empty CSRF cookie value');
+      return null;
+    }
 
     const parsed = JSON.parse(cookieValue);
-    return parsed.token || null;
-  } catch {
+
+    // SECURITY: Validate token structure to prevent injection attacks
+    if (!parsed || typeof parsed !== 'object') {
+      console.error('[SECURITY] CSRF cookie parsed to non-object');
+      return null;
+    }
+
+    if (typeof parsed.token !== 'string' || parsed.token.length === 0) {
+      console.error('[SECURITY] CSRF token missing or invalid type');
+      return null;
+    }
+
+    // Validate token format (64 hex characters for 32-byte token)
+    if (!/^[a-f0-9]{64}$/i.test(parsed.token)) {
+      console.error('[SECURITY] CSRF token has invalid format');
+      return null;
+    }
+
+    return parsed.token;
+  } catch (error) {
+    // SECURITY: Log error details for monitoring without exposing token content
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[SECURITY] Failed to parse CSRF token:', errorMessage);
     return null;
   }
 }
@@ -181,6 +214,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Include CSRF token if available
       if (csrfToken) {
         headers[CSRF_HEADER_NAME] = csrfToken;
+      } else {
+        // SECURITY: Log warning when proceeding without CSRF protection
+        // This can happen on first page load before middleware sets the cookie
+        console.warn('[SECURITY] Proceeding without CSRF token - request may fail');
       }
 
       const response = await fetchWithTimeout(

@@ -74,10 +74,8 @@ export function csrfMiddleware(request: NextRequest) {
       });
     }
 
-    // Add CSRF token to response headers for client to read
-    if (existingToken) {
-      response.headers.set('X-CSRF-Token', existingToken.token);
-    }
+    // SECURITY: Never expose CSRF token in response headers
+    // Tokens are stored in cookies only - exposing in headers risks caching/logging
   } else {
     // Non-state-changing request (GET, HEAD, etc.)
     // Ensure CSRF cookie exists for future state-changing requests
@@ -98,8 +96,7 @@ export function csrfMiddleware(request: NextRequest) {
         domain: undefined, // Explicitly no domain - required for __Host- prefix
       });
 
-      // Add token to response header
-      response.headers.set('X-CSRF-Token', newToken.token);
+      // SECURITY: Token is in cookie only - not exposed in headers
     } else {
       // Check if token needs rotation
       if (shouldRotateToken(existingToken)) {
@@ -116,10 +113,10 @@ export function csrfMiddleware(request: NextRequest) {
           domain: undefined, // Explicitly no domain - required for __Host- prefix
         });
 
-        response.headers.set('X-CSRF-Token', newToken.token);
+        // SECURITY: Token remains in cookie only
       } else {
-        // Token is valid, just return it
-        response.headers.set('X-CSRF-Token', existingToken.token);
+        // Token is valid, keep in cookie only
+        // SECURITY: Never expose in response headers
       }
     }
   }

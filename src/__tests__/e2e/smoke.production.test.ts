@@ -4,6 +4,8 @@ test.describe('Production-safe auth/access smoke', () => {
   test('login and register pages render and cross-link', async ({ page }) => {
     await page.goto('/login');
     await expect(page).toHaveURL(/\/login$/);
+    // Wait for Suspense to resolve and content to load
+    await page.waitForLoadState('networkidle');
     await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
     await expect(page.getByLabel(/email address/i)).toBeVisible();
     await expect(page.getByLabel(/password/i)).toBeVisible();

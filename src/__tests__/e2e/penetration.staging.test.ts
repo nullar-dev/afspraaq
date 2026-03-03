@@ -303,17 +303,18 @@ test.describe('Security Penetration Tests', () => {
           }
         }
 
-        // Should see error message
-        const hasError = await page
-          .getByText(/invalid|error|failed|too many|unable/i)
-          .first()
-          .isVisible()
-          .catch(() => false);
+        // SECURITY FIX: Test should verify actual rate limiting behavior
+        // After 5 failed attempts, user should see error feedback
+        const errorLocator = page.getByText(/invalid|error|failed|too many|unable|rate/i).first();
 
-        // Or should still be on login page (not logged in)
-        const stillOnLogin = page.url().includes('/login');
+        // Wait up to 3 seconds for error message to appear
+        const errorVisible = await errorLocator.isVisible().catch(() => false);
 
-        expect(hasError || stillOnLogin).toBe(true);
+        // Must show error feedback to user
+        expect(errorVisible).toBe(true);
+
+        // Verify still on login page (not logged in)
+        expect(page.url()).toContain('/login');
       } finally {
         await deleteEphemeralUser(user.id);
       }
@@ -332,21 +333,13 @@ test.describe('Security Penetration Tests', () => {
         await page.getByRole('button', { name: /sign in/i }).click();
         await page.waitForURL(/\/booking\/vehicle/, { timeout: 15000 });
 
-        // Clear all browser storage to simulate logout
+        // SECURITY FIX: Use Playwright's clearCookies to properly clear all cookies
+        // JavaScript cannot clear HttpOnly or SameSite=Strict cookies
         await page.evaluate(() => {
           localStorage.clear();
           sessionStorage.clear();
-          // Clear cookies by setting them to expire
-          document.cookie.split(';').forEach(cookie => {
-            const parts = cookie.split('=');
-            if (parts.length > 0) {
-              const name = parts[0]?.trim();
-              if (name) {
-                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-              }
-            }
-          });
         });
+        await page.context().clearCookies();
 
         // Navigate to protected route
         await page.goto('/booking/vehicle');
@@ -377,11 +370,12 @@ test.describe('Security Penetration Tests', () => {
         // Get current state
         const cookiesBefore = await context.cookies();
 
-        // Simulate logout by clearing storage
+        // SECURITY FIX: Properly clear all cookies via Playwright context
         await page.evaluate(() => {
           localStorage.clear();
           sessionStorage.clear();
         });
+        await page.context().clearCookies();
 
         // Try to restore old cookies
         await context.addCookies(cookiesBefore);

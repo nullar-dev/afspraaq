@@ -16,7 +16,7 @@ test.describe('Session Expiry', () => {
     requireStagingAdminEnv();
   });
 
-  test('shows session expiry warning 5 minutes before expiry', async ({ page }) => {
+  test('shows session expiry warning before session expires', async ({ page }) => {
     const user = await createEphemeralUser('user');
 
     try {

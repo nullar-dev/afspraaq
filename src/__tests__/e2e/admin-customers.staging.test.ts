@@ -75,11 +75,16 @@ test.describe('Admin Customers CRUD', () => {
         await firstRow.locator('td').first().locator('p').first().textContent()
       )?.trim();
 
+      // SECURITY FIX: Validate name before using it in assertion
+      if (!expectedName) {
+        throw new Error('Customer name not found in table');
+      }
+
       const viewButton = page.getByTitle('View').first();
       await viewButton.click();
 
       // Modal should open with customer name
-      await expect(page.getByRole('heading', { name: expectedName || '' }).first()).toBeVisible();
+      await expect(page.getByRole('heading', { name: expectedName }).first()).toBeVisible();
       await expect(page.getByText(/Email/i).first()).toBeVisible();
     } finally {
       await deleteEphemeralUser(adminUser.id);

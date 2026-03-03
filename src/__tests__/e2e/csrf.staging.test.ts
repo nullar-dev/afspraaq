@@ -151,7 +151,7 @@ test.describe('CSRF Protection', () => {
 
     // Get all cookies
     const cookies = await page.context().cookies();
-    const csrfCookie = cookies.find(c => c.name === 'csrf_token');
+    const csrfCookie = cookies.find(c => c.name === '__Host-csrf_token');
 
     expect(csrfCookie).toBeTruthy();
     expect(csrfCookie?.sameSite).toBe('Strict');

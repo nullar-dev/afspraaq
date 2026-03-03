@@ -71,7 +71,7 @@ export async function validateJWTSecurity(): Promise<JWTValidationResult> {
       };
     }
 
-    // Verify audience (aud claim) - should match our Supabase project
+    // Verify audience (aud claim) - must match our Supabase project
     const tokenAud = session.user?.aud;
 
     if (!tokenAud) {
@@ -82,13 +82,23 @@ export async function validateJWTSecurity(): Promise<JWTValidationResult> {
       };
     }
 
-    // Audience should be "authenticated" for Supabase auth tokens
-    // or match the Supabase project URL for API tokens
-    if (tokenAud !== 'authenticated' && !tokenAud.includes('supabase')) {
+    // SECURITY: Validate against project-specific audience
+    // Must match either 'authenticated' (Supabase auth) or project URL
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const projectRef = supabaseUrl ? new URL(supabaseUrl).hostname.split('.')[0] : null;
+    const validAudiences = ['authenticated'];
+
+    if (projectRef) {
+      validAudiences.push(`${projectRef}.supabase.co`);
+    }
+
+    // SECURITY: Reject tokens from other Supabase projects
+    // This prevents token substitution attacks between projects
+    if (!validAudiences.includes(tokenAud)) {
       return {
         valid: false,
         error: 'invalid_audience',
-        message: 'Invalid token audience',
+        message: 'Token audience mismatch',
       };
     }
 

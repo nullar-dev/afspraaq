@@ -150,8 +150,10 @@ describe('JWT Security - Advanced Attack Scenarios', () => {
 
       const result = await validateJWTSecurity();
 
-      expect(result.valid).toBe(true); // JWT is valid but...
-      expect(result.userId).toBeUndefined(); // ...no user ID
+      // SECURITY: Token without user ID should be rejected - cannot identify user
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe('missing_claims');
+      expect(result.message).toContain('User ID missing');
     });
 
     it('rejects token without any user object', async () => {

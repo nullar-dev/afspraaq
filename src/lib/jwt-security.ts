@@ -6,6 +6,7 @@
  */
 
 import { createClient } from '@/utils/supabase/server';
+import { timingSafeEqual } from 'crypto';
 
 export interface JWTValidationResult {
   valid: boolean;
@@ -63,7 +64,9 @@ export async function validateJWTSecurity(): Promise<JWTValidationResult> {
     }
 
     // Verify expiry (exp claim)
-    const now = Math.floor(Date.now() / 1000);
+    // SECURITY: Add clock skew tolerance (30 seconds) to prevent false rejections
+    const CLOCK_SKEW_TOLERANCE_SECONDS = 30;
+    const now = Math.floor(Date.now() / 1000) + CLOCK_SKEW_TOLERANCE_SECONDS;
     if (session.expires_at && session.expires_at < now) {
       return {
         valid: false,
@@ -100,7 +103,17 @@ export async function validateJWTSecurity(): Promise<JWTValidationResult> {
     // SECURITY: Validate against project-specific audience
     // Must match either 'authenticated' (Supabase auth) or project URL
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const projectRef = supabaseUrl ? new URL(supabaseUrl).hostname.split('.')[0] : null;
+    let projectRef: string | null = null;
+    try {
+      if (supabaseUrl) {
+        const hostname = new URL(supabaseUrl).hostname;
+        const parts = hostname.split('.');
+        projectRef = parts.length > 0 && parts[0] ? parts[0] : null;
+      }
+    } catch {
+      // Invalid URL in env var - treat as no project ref
+      projectRef = null;
+    }
     const validAudiences = ['authenticated'];
 
     if (projectRef) {
@@ -109,7 +122,17 @@ export async function validateJWTSecurity(): Promise<JWTValidationResult> {
 
     // SECURITY: Reject tokens from other Supabase projects
     // This prevents token substitution attacks between projects
-    if (!validAudiences.includes(tokenAud)) {
+    // Using timing-safe comparison to prevent timing attacks
+    const audienceToken = tokenAud as string; // Type guard: checked above
+    const audienceValid = validAudiences.some(aud => {
+      if (aud.length !== audienceToken.length) return false;
+      try {
+        return timingSafeEqual(Buffer.from(aud), Buffer.from(audienceToken));
+      } catch {
+        return false;
+      }
+    });
+    if (!audienceValid) {
       return {
         valid: false,
         error: 'invalid_audience',
@@ -130,11 +153,22 @@ export async function validateJWTSecurity(): Promise<JWTValidationResult> {
     }
 
     // Validate issuer is our Supabase auth server
-    const expectedIssuer = supabaseUrl
-      ? `${new URL(supabaseUrl).origin}/auth/v1`
-      : 'https://api.supabase.co/auth/v1';
+    // SECURITY: Use try-catch for URL parsing and timing-safe comparison
+    let expectedIssuer: string;
+    try {
+      expectedIssuer = supabaseUrl
+        ? `${new URL(supabaseUrl).origin}/auth/v1`
+        : 'https://api.supabase.co/auth/v1';
+    } catch {
+      expectedIssuer = 'https://api.supabase.co/auth/v1';
+    }
 
-    if (tokenIss !== expectedIssuer) {
+    // SECURITY: Use timing-safe comparison to prevent timing attacks
+    const issuerToken = tokenIss; // Type guard: checked above
+    if (
+      issuerToken.length !== expectedIssuer.length ||
+      !timingSafeEqual(Buffer.from(issuerToken), Buffer.from(expectedIssuer))
+    ) {
       return {
         valid: false,
         error: 'invalid_issuer',
@@ -161,6 +195,15 @@ export async function validateJWTSecurity(): Promise<JWTValidationResult> {
         valid: false,
         error: 'missing_claims',
         message: 'User not found',
+      };
+    }
+
+    // SECURITY: Reject tokens without user ID - cannot identify user
+    if (!user.id) {
+      return {
+        valid: false,
+        error: 'missing_claims',
+        message: 'User ID missing from token',
       };
     }
 

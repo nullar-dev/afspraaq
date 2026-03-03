@@ -78,8 +78,10 @@ export async function validateJWTSecurity(): Promise<JWTValidationResult> {
     // SECURITY: Validate maximum token lifetime (24 hours)
     // Prevents tokens with excessive expiry (e.g., 10 years) from being accepted
     const MAX_TOKEN_LIFETIME_SECONDS = 24 * 60 * 60; // 24 hours
+    // Use actual current time (without clock skew) for lifetime calculation
+    const actualNow = Math.floor(Date.now() / 1000);
     if (session.expires_at) {
-      const tokenLifetime = session.expires_at - now;
+      const tokenLifetime = session.expires_at - actualNow;
       if (tokenLifetime > MAX_TOKEN_LIFETIME_SECONDS) {
         return {
           valid: false,

@@ -27,7 +27,13 @@ function execGitGrep(pattern, options = {}) {
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: options.cwd || process.cwd(),
     });
-  } catch {
+  } catch (err) {
+    if (
+      process.env.NULLAR_AI_DEBUG === '1' ||
+      process.env.NULLAR_AI_DEBUG?.toLowerCase() === 'true'
+    ) {
+      console.error('[DEBUG] execGitGrep failed:', err.message);
+    }
     return null;
   }
 }
@@ -110,7 +116,13 @@ function getFileContext(filePath, lineNumbers, contextLines = CONTEXT_LINES) {
     }
 
     return relevantLines.join('\n');
-  } catch {
+  } catch (err) {
+    if (
+      process.env.NULLAR_AI_DEBUG === '1' ||
+      process.env.NULLAR_AI_DEBUG?.toLowerCase() === 'true'
+    ) {
+      console.error('[DEBUG] getFileContext failed:', err.message);
+    }
     return '';
   }
 }

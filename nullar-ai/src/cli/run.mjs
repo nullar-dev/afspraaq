@@ -4,7 +4,7 @@ import { getGitDiff, getPushDiff } from '../core/diff.js';
 import { formatIssues } from '../core/format.js';
 import { runParallelAgents } from '../core/parallel-agents.js';
 import { collectReviewContext } from '../core/context-collector.js';
-import { countIssues } from '../core/state-machine.js';
+import { countIssues } from '../core/issue-utils.js';
 import { runStaticAnalyzers } from '../core/static-analyzers.js';
 
 const apiKey = process.env.MINIMAX_API_KEY;
@@ -119,9 +119,9 @@ async function main() {
         info(`[${agent}] Attempt ${attempt}/${maxAttempts}`);
       },
       onRetry: ({ delayMs, error, agent }) => {
-        info(
-          `[${agent}] Retrying in ${Math.floor(delayMs / 1000)}s due to error: ${String(error?.message || error)}`
-        );
+        const msg = error?.message;
+        const errorStr = msg && msg !== 'Error' ? msg : String(error);
+        info(`[${agent}] Retrying in ${Math.floor(delayMs / 1000)}s due to error: ${errorStr}`);
       },
       onError: errorData => {
         if (errorData.agents) {
@@ -173,5 +173,7 @@ async function main() {
 }
 
 main().catch(error => {
-  fail(`Review failed: ${String(error?.message || error)}`);
+  const msg = error?.message;
+  const errorStr = msg && msg !== 'Error' ? msg : String(error);
+  fail(`Review failed: ${errorStr}`);
 });

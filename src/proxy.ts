@@ -1,5 +1,19 @@
+/**
+ * Next.js Proxy Middleware
+ * Handles authentication, CSRF protection, CSP nonces, and security headers
+ * 2026 best practice implementation
+ */
+
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import {
+  generateCsrfToken,
+  validateAndRotateToken,
+  shouldRotateToken,
+  requiresCsrfValidation,
+  CSRF_COOKIE_NAME,
+  CSRF_HEADER_NAME,
+} from '@/lib/csrf';
 
 const ALLOWED_REDIRECTS = new Set([
   '/',
@@ -21,7 +35,42 @@ const isSafeRedirect = (value: string | null): value is string =>
   !value.includes('\r') &&
   ALLOWED_REDIRECTS.has(value);
 
-const applySecurityHeaders = (response: NextResponse) => {
+/**
+ * Generate cryptographically secure nonce for CSP
+ * 128 bits of entropy (sufficient for CSP nonces)
+ * Uses Web Crypto API for Edge Runtime compatibility
+ */
+function generateNonce(): string {
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  return btoa(String.fromCharCode(...array));
+}
+
+/**
+ * Parse CSRF token from cookie
+ */
+function parseCsrfCookie(cookieValue: string | undefined) {
+  if (!cookieValue) return null;
+
+  try {
+    return JSON.parse(cookieValue);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Serialize CSRF token for cookie storage
+ */
+function serializeCsrfCookie(token: { token: string; expiresAt: number; requestCount: number }) {
+  return JSON.stringify(token);
+}
+
+/**
+ * Apply security headers with CSP nonce
+ * 2026 best practice: Nonce-based CSP instead of unsafe-inline
+ */
+const applySecurityHeaders = (response: NextResponse, nonce: string) => {
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -33,12 +82,13 @@ const applySecurityHeaders = (response: NextResponse) => {
   response.headers.set('Cross-Origin-Resource-Policy', 'same-origin');
   response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 
+  // 2026 best practice: Strict nonce-based CSP (no unsafe-inline)
   response.headers.set(
     'Content-Security-Policy',
     [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
-      "style-src 'self' 'unsafe-inline'",
+      `script-src 'nonce-${nonce}' 'strict-dynamic'`,
+      `style-src 'self' 'nonce-${nonce}'`,
       "img-src 'self' data: blob:",
       "font-src 'self' data:",
       "connect-src 'self' https:",
@@ -50,12 +100,115 @@ const applySecurityHeaders = (response: NextResponse) => {
     ].join('; ')
   );
 
+  // Store nonce in header for server components to access
+  response.headers.set('X-CSP-Nonce', nonce);
+
   return response;
 };
 
-export async function proxy(request: NextRequest) {
-  let supabaseResponse = applySecurityHeaders(NextResponse.next({ request }));
+/**
+ * Determine if the request is using HTTPS
+ * Used to conditionally set the secure cookie flag
+ */
+function isSecureRequest(request: NextRequest): boolean {
+  return request.url.startsWith('https:');
+}
 
+/**
+ * Get CSRF cookie name based on request security
+ * __Host- prefix requires Secure flag, so we use a different name for HTTP
+ */
+function getCsrfCookieName(request: NextRequest): string {
+  // For HTTPS requests, use __Host- prefix for additional security
+  // For HTTP requests (localhost/dev), use non-prefixed name
+  return isSecureRequest(request) ? CSRF_COOKIE_NAME : 'csrf_token';
+}
+
+/**
+ * Main proxy middleware
+ * Handles auth, CSRF protection, CSP nonces, and security headers
+ */
+export async function proxy(request: NextRequest) {
+  // Generate CSP nonce for this request
+  const nonce = generateNonce();
+
+  // Initialize response with security headers
+  let response = applySecurityHeaders(NextResponse.next({ request }), nonce);
+
+  // Handle CSRF protection
+  const csrfCookieName = getCsrfCookieName(request);
+  const existingCookie = request.cookies.get(csrfCookieName)?.value;
+  const existingToken = parseCsrfCookie(existingCookie);
+  const headerToken = request.headers.get(CSRF_HEADER_NAME) || '';
+
+  // Check if this is a state-changing request that needs CSRF validation
+  if (requiresCsrfValidation(request.method)) {
+    // Explicitly reject empty header tokens
+    if (!headerToken || headerToken === '') {
+      return applySecurityHeaders(
+        NextResponse.json({ error: 'CSRF token required' }, { status: 403 }),
+        nonce
+      );
+    }
+
+    const validation = validateAndRotateToken(headerToken, existingToken);
+
+    if (!validation.valid) {
+      // CSRF validation failed - reject with 403
+      return applySecurityHeaders(
+        NextResponse.json({ error: 'Invalid or missing CSRF token' }, { status: 403 }),
+        nonce
+      );
+    }
+
+    // If token was rotated, set new cookie
+    // __Host- prefix requires: Secure, Path=/, no Domain attribute (in production)
+    if (validation.shouldRotate && validation.newToken) {
+      response.cookies.set({
+        name: csrfCookieName,
+        value: serializeCsrfCookie(validation.newToken),
+        httpOnly: false, // Must be accessible for double-submit
+        secure: isSecureRequest(request), // Required for __Host- prefix in production
+        sameSite: 'strict',
+        path: '/',
+        maxAge: 60 * 60 * 24, // 24 hours
+        domain: undefined, // Explicitly no domain - required for __Host- prefix
+      });
+    }
+  } else {
+    // Non-state-changing request: ensure CSRF cookie exists
+    // __Host- prefix requires: Secure, Path=/, no Domain attribute (in production)
+    if (!existingToken) {
+      const newToken = generateCsrfToken();
+      response.cookies.set({
+        name: csrfCookieName,
+        value: serializeCsrfCookie(newToken),
+        httpOnly: false,
+        secure: isSecureRequest(request), // Required for __Host- prefix in production
+        sameSite: 'strict',
+        path: '/',
+        maxAge: 60 * 60 * 24,
+        domain: undefined, // Explicitly no domain - required for __Host- prefix
+      });
+    } else {
+      // Check if existing token needs rotation
+      if (shouldRotateToken(existingToken)) {
+        const newToken = generateCsrfToken();
+        response.cookies.set({
+          name: csrfCookieName,
+          value: serializeCsrfCookie(newToken),
+          httpOnly: false,
+          secure: isSecureRequest(request), // Required for __Host- prefix in production
+          sameSite: 'strict',
+          path: '/',
+          maxAge: 60 * 60 * 24,
+          domain: undefined, // Explicitly no domain - required for __Host- prefix
+        });
+      }
+    }
+  }
+
+  // Supabase auth handling
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -69,9 +222,9 @@ export async function proxy(request: NextRequest) {
     const publicRoutes = ['/login', '/register', '/'];
     if (!publicRoutes.includes(pathname)) {
       const url = new URL('/login', request.url);
-      return applySecurityHeaders(NextResponse.redirect(url));
+      return applySecurityHeaders(NextResponse.redirect(url), nonce);
     }
-    return supabaseResponse;
+    return response;
   }
 
   const supabase = createServerClient(supabaseUrl, supabaseKey, {
@@ -81,8 +234,8 @@ export async function proxy(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        supabaseResponse = applySecurityHeaders(NextResponse.next({ request }));
-        cookiesToSet.forEach(({ name, value }) => supabaseResponse.cookies.set(name, value));
+        response = applySecurityHeaders(NextResponse.next({ request }), nonce);
+        cookiesToSet.forEach(({ name, value }) => response.cookies.set(name, value));
       },
     },
   });
@@ -111,22 +264,22 @@ export async function proxy(request: NextRequest) {
   if (!user && !isPublicRoute) {
     const url = new URL('/login', request.url);
     url.searchParams.set('redirect', safeRedirect);
-    return applySecurityHeaders(NextResponse.redirect(url));
+    return applySecurityHeaders(NextResponse.redirect(url), nonce);
   }
 
   if (user && ['/login', '/register'].includes(pathname)) {
-    return applySecurityHeaders(NextResponse.redirect(new URL('/', request.url)));
+    return applySecurityHeaders(NextResponse.redirect(new URL('/', request.url)), nonce);
   }
 
   if (user && !isPublicRoute) {
-    supabaseResponse.headers.set('Cache-Control', 'private, no-store, max-age=0');
+    response.headers.set('Cache-Control', 'private, no-store, max-age=0');
   }
 
-  return supabaseResponse;
+  return response;
 }
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|css|js)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp|css|js)$).*)',
   ],
 };

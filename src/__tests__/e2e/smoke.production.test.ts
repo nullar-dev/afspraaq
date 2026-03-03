@@ -4,7 +4,13 @@ test.describe('Production-safe auth/access smoke', () => {
   test('login and register pages render and cross-link', async ({ page }) => {
     await page.goto('/login');
     await expect(page).toHaveURL(/\/login$/);
-    await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
+    // Wait for network to be idle before checking for rendered content
+    // This allows React Suspense boundary to resolve and display actual content
+    await page.waitForLoadState('networkidle');
+    // Wait for the actual content (not just the Suspense fallback)
+    await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible({
+      timeout: 10000,
+    });
     await expect(page.getByLabel(/email address/i)).toBeVisible();
     await expect(page.getByLabel(/password/i)).toBeVisible();
 

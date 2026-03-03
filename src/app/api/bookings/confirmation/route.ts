@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { validateApiCsrfToken } from '@/lib/csrf-api';
 import type { ApiErrorResponse } from '@/types/api';
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
@@ -109,6 +110,12 @@ const hasBrowserRequestHeader = (request: NextRequest) =>
   request.headers.get('x-requested-with') === 'XMLHttpRequest';
 
 export async function POST(request: NextRequest) {
+  // Validate CSRF token first
+  const csrfValidation = validateApiCsrfToken(request);
+  if (!csrfValidation.valid) {
+    return csrfValidation.response;
+  }
+
   if (!hasBrowserRequestHeader(request)) {
     return errorResponse({ code: 'forbidden_request', message: 'Forbidden' }, 403);
   }

@@ -13,6 +13,7 @@ import type { AuthChangeEvent, Session, User as SupabaseUser } from '@supabase/s
 import { getSupabaseClient } from '@/utils/supabase/client';
 import { mapAuthError } from '@/lib/auth-errors';
 import { fetchWithTimeout } from '@/lib/http';
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/csrf';
 
 interface User {
   id: string;
@@ -74,6 +75,68 @@ function toAuthUser(user: SupabaseUser | null): User | null {
     firstName: firstName || 'User',
     lastName,
   };
+}
+
+/**
+ * Get CSRF token from cookie for double-submit pattern
+ * Returns null if cookie not found or invalid
+ * SECURITY: Logs errors for security monitoring without exposing sensitive data
+ */
+function getCsrfTokenFromCookie(): string | null {
+  try {
+    const cookies = document.cookie.split(';');
+    const csrfCookie = cookies.find(cookie => cookie.trim().startsWith(`${CSRF_COOKIE_NAME}=`));
+
+    if (!csrfCookie) {
+      // SECURITY: Log missing CSRF token - potential configuration issue or attack
+      console.warn('[SECURITY] CSRF token cookie not found');
+      return null;
+    }
+
+    // SECURITY: Use indexOf + slice instead of split to handle values containing '='
+    const equalsIndex = csrfCookie.indexOf('=');
+    if (equalsIndex === -1) {
+      console.error('[SECURITY] Malformed CSRF cookie - no equals sign');
+      return null;
+    }
+
+    const cookieValue = decodeURIComponent(csrfCookie.slice(equalsIndex + 1).trim());
+    if (!cookieValue) {
+      console.error('[SECURITY] Empty CSRF cookie value');
+      return null;
+    }
+
+    const parsed = JSON.parse(cookieValue);
+
+    // SECURITY: Validate token structure to prevent injection attacks
+    if (!parsed || typeof parsed !== 'object') {
+      console.error('[SECURITY] CSRF cookie parsed to non-object');
+      return null;
+    }
+
+    if (typeof parsed.token !== 'string' || parsed.token.length === 0) {
+      console.error('[SECURITY] CSRF token missing or invalid type');
+      return null;
+    }
+
+    // Validate token format (64 hex characters for 32-byte token)
+    if (!/^[a-f0-9]{64}$/i.test(parsed.token)) {
+      console.error('[SECURITY] CSRF token has invalid format');
+      return null;
+    }
+
+    return parsed.token;
+  } catch (error) {
+    // SECURITY: Log error details for monitoring without exposing token content
+    // Check for URIError specifically - malformed URL encoding should not cause silent failure
+    if (error instanceof URIError) {
+      console.error('[SECURITY] Malformed URL encoding in CSRF cookie - possible tampering');
+      return null;
+    }
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[SECURITY] Failed to parse CSRF token:', errorMessage);
+    return null;
+  }
 }
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -147,18 +210,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const ensureProfileRow = useCallback(async () => {
     try {
+      // Get CSRF token for double-submit pattern
+      const csrfToken = getCsrfTokenFromCookie();
+      const headers: Record<string, string> = {
+        'x-requested-with': 'XMLHttpRequest',
+      };
+
+      // Include CSRF token if available
+      if (csrfToken) {
+        headers[CSRF_HEADER_NAME] = csrfToken;
+      } else {
+        // SECURITY: Fail fast if CSRF token is missing
+        // This prevents requests from proceeding without CSRF protection
+        console.error('[SECURITY] CSRF token required but not found - aborting request');
+        throw new Error('CSRF token required - please refresh the page');
+      }
+
       const response = await fetchWithTimeout(
         '/api/auth/profile/ensure',
         {
           method: 'POST',
           credentials: 'include',
           cache: 'no-store',
-          headers: {
-            'x-requested-with': 'XMLHttpRequest',
-          },
+          headers,
         },
         10_000
       );
+
+      // Handle CSRF errors specifically
+      if (response.status === 403) {
+        const data = await response.json().catch(() => ({}));
+        if (data.error?.includes('CSRF')) {
+          // SECURITY: CSRF failures must propagate error to caller
+          // Silent failures leave users unaware their action failed for security reasons
+          console.error('[SECURITY] CSRF validation failed - token expired or invalid');
+          throw new Error('CSRF token expired - please refresh and try again');
+        }
+      }
+
       if (!response.ok) {
         console.warn('Profile ensure request failed', { status: response.status });
       }

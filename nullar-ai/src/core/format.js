@@ -2,7 +2,7 @@
  * NullarAI - Output Formatter
  */
 
-import { countIssues as count } from './state-machine.js';
+import { countIssues as count } from './issue-utils.js';
 
 export function formatIssues(issues) {
   const lines = [];

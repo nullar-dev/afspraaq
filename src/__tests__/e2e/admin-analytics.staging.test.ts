@@ -22,16 +22,17 @@ test.describe('Admin Analytics Page', () => {
 
     try {
       await signIn(page, adminUser.email, adminUser.password);
+      await expect(page).toHaveURL(/\/booking\/vehicle$/);
       await page.goto('/admin/analytics');
 
       await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
       await expect(page.getByText('Track your business performance')).toBeVisible();
 
       // Check for stats cards
-      await expect(page.getByText(/Today.*Revenue/i)).toBeVisible();
-      await expect(page.getByText(/This Week/i)).toBeVisible();
-      await expect(page.getByText(/This Month/i)).toBeVisible();
-      await expect(page.getByText(/Active Customers/i)).toBeVisible();
+      await expect(page.getByText("Today's Revenue")).toBeVisible();
+      await expect(page.getByText('This Week', { exact: true })).toBeVisible();
+      await expect(page.getByText('This Month', { exact: true })).toBeVisible();
+      await expect(page.getByText('Active Customers', { exact: true })).toBeVisible();
     } finally {
       await deleteEphemeralUser(adminUser.id);
     }
@@ -42,6 +43,7 @@ test.describe('Admin Analytics Page', () => {
 
     try {
       await signIn(page, adminUser.email, adminUser.password);
+      await expect(page).toHaveURL(/\/booking\/vehicle$/);
       await page.goto('/admin/analytics');
 
       await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
@@ -61,6 +63,7 @@ test.describe('Admin Analytics Page', () => {
 
     try {
       await signIn(page, adminUser.email, adminUser.password);
+      await expect(page).toHaveURL(/\/booking\/vehicle$/);
       await page.goto('/admin/analytics');
 
       await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();

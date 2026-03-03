@@ -297,7 +297,7 @@ describe('AuthContext', () => {
   });
 
   it('covers timer and ensure-profile branches with warning/session events', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     let authCallback:
       | ((
           event: string,
@@ -340,7 +340,10 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('auth-state').textContent).toBe('yes');
       expect(screen.getByTestId('email').textContent).toBe('');
     });
-    expect(warnSpy).toHaveBeenCalledWith('Profile ensure request failed', { status: 500 });
+    // SECURITY: CSRF token is now mandatory - request fails fast without it
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[SECURITY] CSRF token required but not found - aborting request'
+    );
 
     act(() => {
       authCallback?.('SIGNED_IN', {
@@ -384,7 +387,7 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('auth-state').textContent).toBe('yes');
     });
 
-    warnSpy.mockRestore();
+    errorSpy.mockRestore();
   });
 
   it('logs both unhandled rejection variants', async () => {

@@ -22,6 +22,7 @@ test.describe('Admin Bookings CRUD', () => {
 
     try {
       await signIn(page, adminUser.email, adminUser.password);
+      await expect(page).toHaveURL(/\/booking\/vehicle$/);
       await page.goto('/admin/bookings');
 
       // Wait for page to load
@@ -29,10 +30,10 @@ test.describe('Admin Bookings CRUD', () => {
       await expect(page.getByText('Manage all customer appointments')).toBeVisible();
 
       // Check table headers
-      await expect(page.getByText('ID')).toBeVisible();
-      await expect(page.getByText('Customer')).toBeVisible();
-      await expect(page.getByText('Service')).toBeVisible();
-      await expect(page.getByText('Status')).toBeVisible();
+      await expect(page.getByRole('columnheader', { name: 'ID' })).toBeVisible();
+      await expect(page.getByRole('columnheader', { name: 'Customer' })).toBeVisible();
+      await expect(page.getByRole('columnheader', { name: 'Service' })).toBeVisible();
+      await expect(page.getByRole('columnheader', { name: 'Status' })).toBeVisible();
     } finally {
       await deleteEphemeralUser(adminUser.id);
     }
@@ -43,6 +44,7 @@ test.describe('Admin Bookings CRUD', () => {
 
     try {
       await signIn(page, adminUser.email, adminUser.password);
+      await expect(page).toHaveURL(/\/booking\/vehicle$/);
       await page.goto('/admin/bookings');
 
       await expect(page.getByRole('heading', { name: 'Bookings' })).toBeVisible();
@@ -51,12 +53,11 @@ test.describe('Admin Bookings CRUD', () => {
       const statusSelect = page.getByRole('combobox').first();
       await statusSelect.selectOption('confirmed');
 
-      // Wait for table to update
+      // Wait for filter to apply
       await page.waitForTimeout(500);
 
-      // Verify filter applied (check if any confirmed badges exist)
-      const confirmedBadges = page.locator('text=confirmed');
-      await expect(confirmedBadges.first()).toBeVisible();
+      // Verify filter applied - dropdown should show selected value
+      await expect(page.getByRole('combobox').first()).toHaveValue('confirmed');
     } finally {
       await deleteEphemeralUser(adminUser.id);
     }
@@ -67,6 +68,7 @@ test.describe('Admin Bookings CRUD', () => {
 
     try {
       await signIn(page, adminUser.email, adminUser.password);
+      await expect(page).toHaveURL(/\/booking\/vehicle$/);
       await page.goto('/admin/bookings');
 
       await expect(page.getByRole('heading', { name: 'Bookings' })).toBeVisible();
@@ -91,6 +93,7 @@ test.describe('Admin Bookings CRUD', () => {
 
     try {
       await signIn(page, adminUser.email, adminUser.password);
+      await expect(page).toHaveURL(/\/booking\/vehicle$/);
       await page.goto('/admin/bookings');
 
       await expect(page.getByRole('heading', { name: 'Bookings' })).toBeVisible();
@@ -112,6 +115,7 @@ test.describe('Admin Bookings CRUD', () => {
 
     try {
       await signIn(page, adminUser.email, adminUser.password);
+      await expect(page).toHaveURL(/\/booking\/vehicle$/);
       await page.goto('/admin/bookings');
 
       await expect(page.getByRole('heading', { name: 'Bookings' })).toBeVisible();
@@ -133,6 +137,7 @@ test.describe('Admin Bookings CRUD', () => {
 
     try {
       await signIn(page, adminUser.email, adminUser.password);
+      await expect(page).toHaveURL(/\/booking\/vehicle$/);
       await page.goto('/admin/bookings');
 
       await expect(page.getByRole('heading', { name: 'Bookings' })).toBeVisible();
@@ -142,8 +147,8 @@ test.describe('Admin Bookings CRUD', () => {
       await deleteButton.click();
 
       // Modal should open
-      await expect(page.getByText('Delete Booking')).toBeVisible();
-      await expect(page.getByText('Are you sure you want to delete')).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Delete Booking' })).toBeVisible();
+      await expect(page.getByText(/Are you sure you want to delete/i)).toBeVisible();
     } finally {
       await deleteEphemeralUser(adminUser.id);
     }

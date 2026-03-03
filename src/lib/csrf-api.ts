@@ -50,8 +50,11 @@ export function validateApiCsrfToken(
   }
 
   // Get tokens from request
+  // Try both cookie names: __Host-csrf_token (HTTPS) and csrf_token (HTTP/localhost)
   const headerToken = request.headers.get(CSRF_HEADER_NAME);
-  const cookieValue = request.cookies.get(CSRF_COOKIE_NAME)?.value;
+  const secureCookieValue = request.cookies.get(CSRF_COOKIE_NAME)?.value;
+  const nonSecureCookieValue = request.cookies.get('csrf_token')?.value;
+  const cookieValue = secureCookieValue || nonSecureCookieValue;
   const cookieToken = parseCsrfCookie(cookieValue);
 
   // Validate presence of both tokens
@@ -121,7 +124,10 @@ export function hasValidCsrfToken(request: NextRequest): boolean {
   }
 
   const headerToken = request.headers.get(CSRF_HEADER_NAME);
-  const cookieValue = request.cookies.get(CSRF_COOKIE_NAME)?.value;
+  // Try both cookie names: __Host-csrf_token (HTTPS) and csrf_token (HTTP/localhost)
+  const secureCookieValue = request.cookies.get(CSRF_COOKIE_NAME)?.value;
+  const nonSecureCookieValue = request.cookies.get('csrf_token')?.value;
+  const cookieValue = secureCookieValue || nonSecureCookieValue;
   const cookieToken = parseCsrfCookie(cookieValue);
 
   if (!headerToken || !cookieToken) {

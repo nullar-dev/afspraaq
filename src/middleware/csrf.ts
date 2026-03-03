@@ -36,6 +36,14 @@ function serializeCsrfCookie(token: { token: string; expiresAt: number; requestC
 }
 
 /**
+ * Determine if the request is using HTTPS
+ * Used to conditionally set the secure cookie flag
+ */
+function isSecureRequest(request: NextRequest): boolean {
+  return request.url.startsWith('https:');
+}
+
+/**
  * CSRF Middleware
  * Attaches CSRF token to responses and validates on state-changing requests
  */
@@ -60,13 +68,13 @@ export function csrfMiddleware(request: NextRequest) {
     }
 
     // If token was rotated, set new cookie
-    // __Host- prefix requires: Secure, Path=/, no Domain attribute
+    // __Host- prefix requires: Secure, Path=/, no Domain attribute (in production)
     if (validation.shouldRotate && validation.newToken) {
       response.cookies.set({
         name: CSRF_COOKIE_NAME,
         value: serializeCsrfCookie(validation.newToken),
         httpOnly: false, // Must be accessible to JavaScript for double-submit
-        secure: true, // Required for __Host- prefix
+        secure: isSecureRequest(request), // Required for __Host- prefix in production
         sameSite: 'strict',
         path: '/',
         maxAge: 60 * 60 * 24, // 24 hours
@@ -79,7 +87,7 @@ export function csrfMiddleware(request: NextRequest) {
   } else {
     // Non-state-changing request (GET, HEAD, etc.)
     // Ensure CSRF cookie exists for future state-changing requests
-    // __Host- prefix requires: Secure, Path=/, no Domain attribute
+    // __Host- prefix requires: Secure, Path=/, no Domain attribute (in production)
 
     if (!existingToken) {
       // Generate new CSRF token
@@ -89,7 +97,7 @@ export function csrfMiddleware(request: NextRequest) {
         name: CSRF_COOKIE_NAME,
         value: serializeCsrfCookie(newToken),
         httpOnly: false,
-        secure: true, // Required for __Host- prefix
+        secure: isSecureRequest(request), // Required for __Host- prefix in production
         sameSite: 'strict',
         path: '/',
         maxAge: 60 * 60 * 24,
@@ -106,7 +114,7 @@ export function csrfMiddleware(request: NextRequest) {
           name: CSRF_COOKIE_NAME,
           value: serializeCsrfCookie(newToken),
           httpOnly: false,
-          secure: true, // Required for __Host- prefix
+          secure: isSecureRequest(request), // Required for __Host- prefix in production
           sameSite: 'strict',
           path: '/',
           maxAge: 60 * 60 * 24,

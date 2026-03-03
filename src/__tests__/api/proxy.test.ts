@@ -13,7 +13,7 @@ const getRedirectUrl = (location: string | null) => {
   return new URL(location!);
 };
 
-describe('proxy middleware', () => {
+describe('proxy proxy', () => {
   const originalEnv = process.env;
   let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 

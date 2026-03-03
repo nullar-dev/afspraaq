@@ -6,7 +6,6 @@
 
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-import { randomBytes } from 'crypto';
 import {
   generateCsrfToken,
   validateAndRotateToken,
@@ -39,9 +38,12 @@ const isSafeRedirect = (value: string | null): value is string =>
 /**
  * Generate cryptographically secure nonce for CSP
  * 128 bits of entropy (sufficient for CSP nonces)
+ * Uses Web Crypto API for Edge Runtime compatibility
  */
 function generateNonce(): string {
-  return randomBytes(16).toString('base64');
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  return btoa(String.fromCharCode(...array));
 }
 
 /**
@@ -105,6 +107,24 @@ const applySecurityHeaders = (response: NextResponse, nonce: string) => {
 };
 
 /**
+ * Determine if the request is using HTTPS
+ * Used to conditionally set the secure cookie flag
+ */
+function isSecureRequest(request: NextRequest): boolean {
+  return request.url.startsWith('https:');
+}
+
+/**
+ * Get CSRF cookie name based on request security
+ * __Host- prefix requires Secure flag, so we use a different name for HTTP
+ */
+function getCsrfCookieName(request: NextRequest): string {
+  // For HTTPS requests, use __Host- prefix for additional security
+  // For HTTP requests (localhost/dev), use non-prefixed name
+  return isSecureRequest(request) ? CSRF_COOKIE_NAME : 'csrf_token';
+}
+
+/**
  * Main proxy middleware
  * Handles auth, CSRF protection, CSP nonces, and security headers
  */
@@ -116,7 +136,8 @@ export async function proxy(request: NextRequest) {
   let response = applySecurityHeaders(NextResponse.next({ request }), nonce);
 
   // Handle CSRF protection
-  const existingCookie = request.cookies.get(CSRF_COOKIE_NAME)?.value;
+  const csrfCookieName = getCsrfCookieName(request);
+  const existingCookie = request.cookies.get(csrfCookieName)?.value;
   const existingToken = parseCsrfCookie(existingCookie);
   const headerToken = request.headers.get(CSRF_HEADER_NAME) || '';
 
@@ -141,13 +162,13 @@ export async function proxy(request: NextRequest) {
     }
 
     // If token was rotated, set new cookie
-    // __Host- prefix requires: Secure, Path=/, no Domain attribute
+    // __Host- prefix requires: Secure, Path=/, no Domain attribute (in production)
     if (validation.shouldRotate && validation.newToken) {
       response.cookies.set({
-        name: CSRF_COOKIE_NAME,
+        name: csrfCookieName,
         value: serializeCsrfCookie(validation.newToken),
         httpOnly: false, // Must be accessible for double-submit
-        secure: true, // Required for __Host- prefix
+        secure: isSecureRequest(request), // Required for __Host- prefix in production
         sameSite: 'strict',
         path: '/',
         maxAge: 60 * 60 * 24, // 24 hours
@@ -156,14 +177,14 @@ export async function proxy(request: NextRequest) {
     }
   } else {
     // Non-state-changing request: ensure CSRF cookie exists
-    // __Host- prefix requires: Secure, Path=/, no Domain attribute
+    // __Host- prefix requires: Secure, Path=/, no Domain attribute (in production)
     if (!existingToken) {
       const newToken = generateCsrfToken();
       response.cookies.set({
-        name: CSRF_COOKIE_NAME,
+        name: csrfCookieName,
         value: serializeCsrfCookie(newToken),
         httpOnly: false,
-        secure: true, // Required for __Host- prefix
+        secure: isSecureRequest(request), // Required for __Host- prefix in production
         sameSite: 'strict',
         path: '/',
         maxAge: 60 * 60 * 24,
@@ -174,10 +195,10 @@ export async function proxy(request: NextRequest) {
       if (shouldRotateToken(existingToken)) {
         const newToken = generateCsrfToken();
         response.cookies.set({
-          name: CSRF_COOKIE_NAME,
+          name: csrfCookieName,
           value: serializeCsrfCookie(newToken),
           httpOnly: false,
-          secure: true, // Required for __Host- prefix
+          secure: isSecureRequest(request), // Required for __Host- prefix in production
           sameSite: 'strict',
           path: '/',
           maxAge: 60 * 60 * 24,
@@ -185,12 +206,6 @@ export async function proxy(request: NextRequest) {
         });
       }
     }
-  }
-
-  // Get current CSRF token for client
-  const currentCsrfToken = parseCsrfCookie(response.cookies.get(CSRF_COOKIE_NAME)?.value);
-  if (currentCsrfToken) {
-    response.headers.set('X-CSRF-Token', currentCsrfToken.token);
   }
 
   // Supabase auth handling

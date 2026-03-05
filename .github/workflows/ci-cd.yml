@@ -159,7 +159,7 @@ jobs:
 
       - name: Run Secret Scanning
         if: github.event.repository.default_branch != '' && github.event.before != github.sha
-        uses: trufflesecurity/trufflehog@v3.93.4
+        uses: trufflesecurity/trufflehog@v3.93.7
         with:
           base: ${{ github.event.before }}
           head: ${{ github.sha }}

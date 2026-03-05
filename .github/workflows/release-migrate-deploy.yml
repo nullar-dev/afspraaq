@@ -82,7 +82,7 @@ jobs:
           echo "Created backup: $BACKUP_FILE"
 
       - name: Upload production backup artifact
-        uses: actions/upload-artifact@v6.0.0
+        uses: actions/upload-artifact@v7.0.0
         with:
           name: production-db-backup-${{ github.sha }}
           path: backups/*.dump

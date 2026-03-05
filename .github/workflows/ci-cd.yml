@@ -150,12 +150,12 @@ jobs:
         run: pnpm audit --audit-level=${{ env.AUDIT_LEVEL }}
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4.32.4
+        uses: github/codeql-action/init@v4.32.5
         with:
           languages: ${{ vars.CI_CODEQL_LANGUAGES || 'javascript, typescript' }}
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4.32.4
+        uses: github/codeql-action/analyze@v4.32.5
 
       - name: Run Secret Scanning
         if: github.event.repository.default_branch != '' && github.event.before != github.sha
